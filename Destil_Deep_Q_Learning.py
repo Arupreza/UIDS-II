@@ -30,30 +30,36 @@ class BeliefStateTransformerEnv:
     def get_belief_state(self):
         seq = self.sequence.unsqueeze(1)  # [seq_len, 1, feature_dim]
         belief = self.transformer(seq).mean(dim=0)  # [1, feature_dim]
-        return belief.squeeze(0)  # [feature_dim]
+        return belief.squeeze(0)  # [feature_dim] ← single sample
+
+
 
 # GRU-based Deep Q-Network (Teacher Model)
 class DQN_GRU(nn.Module):
     def __init__(self, input_dim, output_dim, hidden_dim=64):
         super(DQN_GRU, self).__init__()
-        self.gru = nn.GRU(input_dim, hidden_dim, batch_first=True)
-        self.fc = nn.Linear(hidden_dim, output_dim)
+        self.hidden_dim = hidden_dim
+        self.gru = nn.GRU(input_dim, hidden_dim, num_layers=3, bidirectional=True, batch_first=True)
+        self.fc = nn.Linear(hidden_dim * 2, output_dim)  # *2 due to bidirection
 
     def forward(self, x):
-        x, _ = self.gru(x.unsqueeze(0))
-        x = self.fc(x[:, -1, :])
+        # x: [batch_size, seq_len, input_dim]
+        x, _ = self.gru(x)
+        x = self.fc(x[:, -1, :])  # take last time step
         return x
 
 # GRU-based Smaller Deep Q-Network (Student Model)
 class DQN_GRU_Student(nn.Module):
     def __init__(self, input_dim, output_dim, hidden_dim=32):
         super(DQN_GRU_Student, self).__init__()
-        self.gru = nn.GRU(input_dim, hidden_dim, batch_first=True)
-        self.fc = nn.Linear(hidden_dim, output_dim)
+        self.hidden_dim = hidden_dim
+        self.gru = nn.GRU(input_dim, hidden_dim, bidirectional=True, batch_first=True)
+        self.fc = nn.Linear(hidden_dim * 2, output_dim)  # *2 for bidirectional
 
     def forward(self, x):
-        x, _ = self.gru(x.unsqueeze(0))
-        x = self.fc(x[:, -1, :])
+        # x: [batch_size, seq_len, input_dim]
+        x, _ = self.gru(x)
+        x = self.fc(x[:, -1, :])  # last timestep output
         return x
 
 # Experience Replay Buffer
