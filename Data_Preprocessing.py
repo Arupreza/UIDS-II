@@ -84,3 +84,51 @@ def segment(df, time_gap):
             out = np.array(out[["Time_Gap", "Category"]])
         chunk.append(out)
     return chunk
+
+
+#Feature Selectoion
+
+Kia_Korea_Normal = process_csv_file("Kia_Korea_Normal.csv")
+Kia_Korea_Normal = Kia_Korea_Normal[:600000]
+Kia_Korea_Normal = Kia_Korea_Normal.rename(columns={'Time_Ofset': 'Time_Offset'})
+Kia_Korea_Normal.replace(-1, None, inplace=True)
+Kia_Korea_Normal = Kia_Korea_Normal.astype(str)
+
+
+Kia_Korea_DoS = process_csv_file("Kia_Korea_DoS.csv")
+Kia_Korea_DoS = Kia_Korea_DoS[:600000]
+Kia_Korea_DoS = Kia_Korea_DoS.rename(columns={'Time_Ofset': 'Time_Offset'})
+Kia_Korea_DoS.replace(-1, None, inplace=True)
+Kia_Korea_DoS = Kia_Korea_DoS.astype(str)
+
+
+Kia_Korea_Fuzz = process_csv_file("Kia_Korea_Fuzz.csv")
+Kia_Korea_Fuzz = Kia_Korea_Fuzz[:600000]
+Kia_Korea_Fuzz = Kia_Korea_Fuzz.rename(columns={'Time_Ofset': 'Time_Offset'})
+Kia_Korea_Fuzz.replace(-1, None, inplace=True)
+Kia_Korea_Fuzz = Kia_Korea_Fuzz.astype(str)
+
+
+Kia_Korea_Replay = process_csv_file("Kia_Korea_Replay.csv")
+Kia_Korea_Replay = Kia_Korea_Replay[:600000]
+Kia_Korea_Replay = Kia_Korea_Replay.rename(columns={'Time_Ofset': 'Time_Offset'})
+Kia_Korea_Replay.replace(-1, None, inplace=True)
+Kia_Korea_Replay = Kia_Korea_Replay.astype(str)
+
+
+Kia_Korea_Normal = Kia_Korea_Normal[['Time_Offset', 'CAN_ID', 'Time_Gap']]
+Kia_Korea_DoS = Kia_Korea_DoS[['Time_Offset', 'CAN_ID', 'Time_Gap']]
+Kia_Korea_Fuzz = Kia_Korea_Fuzz[['Time_Offset', 'CAN_ID', 'Time_Gap']]
+Kia_Korea_Replay = Kia_Korea_Replay[['Time_Offset', 'CAN_ID', 'Time_Gap']]
+
+########################################################################################
+Kia_Korea_Normal_IDs = divide_into_parts(np.unique(Kia_Korea_Normal['CAN_ID']))
+Kia_Korea_DoS_IDs = divide_into_parts(np.unique(Kia_Korea_DoS['CAN_ID']))
+Kia_Korea_Fuzz_IDs = divide_into_parts(np.unique(Kia_Korea_Fuzz['CAN_ID']))
+Kia_Korea_Replay_IDs = divide_into_parts(np.unique(Kia_Korea_Replay['CAN_ID']))
+
+########################################################################################
+Kia_Korea_C_CAN_C = categorize_can_ids_X(Kia_Korea_Normal, Kia_Korea_Normal_IDs[0], Kia_Korea_Normal_IDs[1], Kia_Korea_Normal_IDs[2])
+Kia_Korea_DoS_C = categorize_can_ids_X(Kia_Korea_DoS, Kia_Korea_DoS_IDs[0], Kia_Korea_DoS_IDs[1], Kia_Korea_DoS_IDs[2])
+Kia_Korea_Fuzz_C = categorize_can_ids_X(Kia_Korea_Fuzz, Kia_Korea_Fuzz_IDs[0], Kia_Korea_Fuzz_IDs[1], Kia_Korea_Fuzz_IDs[2])
+Kia_Korea_Replay_C = categorize_can_ids_X(Kia_Korea_Replay, Kia_Korea_Replay_IDs[0], Kia_Korea_Replay_IDs[1], Kia_Korea_Replay_IDs[2])
