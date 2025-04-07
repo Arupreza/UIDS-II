@@ -3,6 +3,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+import torch
+import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+import joblib
+
 
 ########################################################################################
 def CAN_ID_Categorization(can_ids):
@@ -36,6 +43,35 @@ def Time_Gap_Categorization(numbers):
         categorized.append((value, category))
 
     return pd.DataFrame(categorized, columns=['Time_Gap', 'Cat_Time_Gap'])
+
+
+# ----------------------------
+# Embedding Dataset
+# ----------------------------
+class EmbeddingDataset(Dataset):
+    def __init__(self, df):
+        self.can_ids = torch.tensor(df['CAN_ID_Encoded'].values, dtype=torch.long)
+        self.time_gaps = torch.tensor(df['Time_Gap_Encoded'].values, dtype=torch.long)
+
+    def __len__(self):
+        return len(self.can_ids)
+
+    def __getitem__(self, idx):
+        return self.can_ids[idx], self.time_gaps[idx]
+
+# ----------------------------
+# Embedding Model
+# ----------------------------
+class CANEmbeddingModel(nn.Module):
+    def __init__(self, can_vocab_size=100, gap_vocab_size=1000):
+        super().__init__()
+        self.can_embed = nn.Embedding(can_vocab_size, 6)
+        self.gap_embed = nn.Embedding(gap_vocab_size, 11)
+
+    def forward(self, can_id, gap_id):
+        can_vec = self.can_embed(can_id)  # [batch, 6]
+        gap_vec = self.gap_embed(gap_id)  # [batch, 11]
+        return torch.cat([can_vec, gap_vec], dim=1)  # [batch, 17]
 
 
 ########################################################################################
