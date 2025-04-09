@@ -76,19 +76,21 @@ class CANEmbeddingModel(nn.Module):
         return torch.cat([can_vec, gap_vec], dim=1)  # [batch, 17]
 
 
-########################################################################################
+# ----------------------------
 # Chunk Compilation
-def segment(df, time_gap):
-    embed_cols = [col for col in df.columns if col.startswith('CAN_Embed_')]
-    df = df[["Time_Offset", "Time_Gap"] + embed_cols]
-    up = float(df['Time_Offset'][0])
-    low = up + time_gap
-    chunk = []
-
-    for i in df.Time_Offset:
-        if float(i) <= low:
-            out = df[(df['Time_Offset'] >= float(up)) & (df['Time_Offset'] <= float(low))]
-            out = np.array(out[["Time_Gap"] + embed_cols])
-            chunk.append(out)
-
-    return chunk
+# ----------------------------
+def segment(df, chunk_size=17, label=0):
+    # This function will split the data into chunks of the given size (default 17 values)
+    chunks = []
+    
+    # Iterate over the dataframe in steps of 'chunk_size'
+    for i in range(0, len(df), chunk_size):
+        # Get the chunk of the dataframe
+        chunk_data = df.iloc[i:i+chunk_size]
+        
+        # Check if the chunk has the correct size
+        if chunk_data.shape[0] == chunk_size and chunk_data.shape[1] == chunk_size:
+            # Convert chunk data into a numpy array and append to the chunk list
+            chunks.append([np.array(chunk_data), label])
+    
+    return chunks
