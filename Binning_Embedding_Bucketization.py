@@ -33,12 +33,12 @@ def CAN_ID_Categorization(can_ids):
 def Time_Gap_Categorization(numbers):
     numbers = numbers.dropna()
     min_value, max_value = min(numbers), max(numbers)
-    range_step = (max_value - min_value) / 1000
+    range_step = (max_value - min_value) / 100000
 
     categorized = []
     for value in numbers:
         category_index = int((value - min_value) // range_step) + 1
-        category_index = min(category_index, 1000)  # clamp
+        category_index = min(category_index, 100000)  # clamp
         category = f"TG_{category_index}"
         categorized.append((value, category))
 
