@@ -10,36 +10,59 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 import joblib
 
+########################################################################################
+# Data Loading and Preprocessing
+########################################################################################
+def load_data(df_name):
+    from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+    le = LabelEncoder()
+    scaler = MinMaxScaler()
+
+    path = "/home/lisa/Arupreza/Cognitive-Belief-Driven-Q-Learning-for-Vehicle-Model-Agnostic-Intrusion-Detection-in-V-Net/Input_data/"
+    df = pd.read_csv(path + df_name)
+    df['Intra_ID_Time_Gap'] = (df.groupby('CAN_ID')['Time_Offset'].diff().fillna(-1))
+    df['Time_Gap'] = df['Time_Offset'].diff().fillna(-1)
+    df = df[df['Intra_ID_Time_Gap'] != -1.0].reset_index(drop=True)
+    df_ = CAN_ID_Categorization(df['CAN_ID'], 10)
+    df__ = CAN_ID_Categorization(df['CAN_ID'], 10)
+    df["Cat_CAN_ID"] = df_['Cat_CAN_ID']
+    df = df[['Cat_CAN_ID', 'Intra_ID_Time_Gap', 'Time_Gap', 'Label']]
+    df['Cat_CAN_ID'] = le.fit_transform(df['Cat_CAN_ID'])
+    df[['Cat_CAN_ID', 'Intra_ID_Time_Gap', 'Time_Gap']] = scaler.fit_transform(df[['Cat_CAN_ID', 'Intra_ID_Time_Gap', 'Time_Gap']])
+    
+    return df
 
 ########################################################################################
-def CAN_ID_Categorization(can_ids):
+# CAN ID Categorization
+########################################################################################
+def CAN_ID_Categorization(can_ids, div):
     decimal_values = [int(hex_value, 16) for hex_value in can_ids]
     min_can_id, max_can_id = min(decimal_values), max(decimal_values)
-    range_step = (max_can_id - min_can_id) / 100
+    range_step = (max_can_id - min_can_id) / div
 
     categorized_ids = []
     for hex_value in can_ids:
         decimal_value = int(hex_value, 16)
         category_index = int((decimal_value - min_can_id) // range_step) + 1
-        category_index = min(category_index, 100)  # clamp
-        category = f"CAN_{category_index}"
+        category_index = min(category_index, div)  # clamp
+        category = f"CAT_{category_index}"
         categorized_ids.append((hex_value, category))
 
     return pd.DataFrame(categorized_ids, columns=['CAN_ID', 'Cat_CAN_ID'])
 
+########################################################################################
+# Time Gap Categorization
+########################################################################################
 
-
-
-def Time_Gap_Categorization(numbers):
-    numbers = numbers.dropna()
-    min_value, max_value = min(numbers), max(numbers)
-    range_step = (max_value - min_value) / 100000
+def Time_Gap_Categorization(time_div, div):
+    min_value, max_value = min(time_div), max(time_div)
+    range_step = (max_value - min_value) / div
 
     categorized = []
-    for value in numbers:
+    for value in time_div:
         category_index = int((value - min_value) // range_step) + 1
-        category_index = min(category_index, 100000)  # clamp
-        category = f"TG_{category_index}"
+        category_index = min(category_index, div)  # clamp
+        category = f"CATT_{category_index}"
         categorized.append((value, category))
 
     return pd.DataFrame(categorized, columns=['Time_Gap', 'Cat_Time_Gap'])
