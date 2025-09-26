@@ -128,7 +128,7 @@ def inject_sequential_from_df(orig_df, injection_df, time_gap_range=(10, 50), la
     return df_sort_time
 
 # Main function to select attack type
-def DataInjection(type_of_attack, orig_df, injection_df=None, time_gap_range=(10, 50), label="Attack"):
+def DataInjection_TimeFreq(type_of_attack, orig_df, injection_df=None, time_gap_range=(10, 50), label="Attack"):
     if type_of_attack == "Fuzz":
         return inject_attack_dataset(
             orig_df=orig_df,

@@ -71,7 +71,7 @@ def inject_attack_dataset(orig_df, attack_gen_func, injection_frequency=(5, 30),
         
         # Generate random positions within this group for attacks
         group_positions = random.sample(range(group_start, group_end), 
-                                       min(attack_count, group_end - group_start))
+                                    min(attack_count, group_end - group_start))
         
         for pos in group_positions:
             attack_row = attack_gen_func(orig_df).copy()
@@ -127,7 +127,7 @@ def inject_sequential_from_df(orig_df, injection_df, injection_frequency=(5, 30)
         
         # Generate random positions within this group for attacks
         group_positions = random.sample(range(group_start, group_end), 
-                                       min(attack_count, group_end - group_start))
+                                    min(attack_count, group_end - group_start))
         
         for pos in group_positions:
             # Get next injection row in order (loop if needed)
@@ -166,7 +166,7 @@ def inject_sequential_from_df(orig_df, injection_df, injection_frequency=(5, 30)
         return orig_df
 
 # Main function to select attack type
-def DataInjection(type_of_attack, orig_df, injection_df=None, injection_frequency=(5, 30), label="Attack"):
+def DataInjection_CountFreq(type_of_attack, orig_df, injection_df=None, injection_frequency=(5, 30), label="Attack"):
     """
     Inject attacks based on message frequency rather than time intervals.
     
@@ -175,7 +175,7 @@ def DataInjection(type_of_attack, orig_df, injection_df=None, injection_frequenc
         orig_df: Original DataFrame
         injection_df: DataFrame for Replay attacks (required for Replay)
         injection_frequency: Tuple (attack_count, total_messages) 
-                           e.g., (5, 30) means 5 attacks per 30 messages
+                        e.g., (5, 30) means 5 attacks per 30 messages
         label: Label for attack messages
     """
     if type_of_attack == "Fuzz":
