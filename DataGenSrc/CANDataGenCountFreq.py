@@ -166,7 +166,7 @@ def inject_sequential_from_df(orig_df, injection_df, injection_frequency=(5, 30)
         return orig_df
 
 # Main function to select attack type
-def DataInjection_CountFreq(type_of_attack, orig_df, injection_df=None, injection_frequency=(5, 30), label="Attack"):
+def CANDataInjectionCountFreq(type_of_attack, orig_df, injection_df=None, injection_frequency=(5, 30), label="Attack"):
     """
     Inject attacks based on message frequency rather than time intervals.
     
@@ -205,24 +205,22 @@ def DataInjection_CountFreq(type_of_attack, orig_df, injection_df=None, injectio
         )
     else:
         raise ValueError(f"Unknown attack type: {type_of_attack}")
-    
-    
-# fuzz_result = DataInjection(
-#     type_of_attack="Fuzz",
-#     orig_df=simulation_df,
-#     injection_frequency=(5, 30),  # 5 fuzz attacks per 30 messages
-#     label="Fuzz"
-# )
 
-# dos_result = DataInjection(
+# dos_result = CANDataInjectionCountFreq(
 #     type_of_attack="DoS",
 #     orig_df=simulation_df,
 #     injection_frequency=(5, 30),  # 5 DoS attacks per 30 messages
 #     label="DoS"
 # )
 
+# fuzz_result = CANDataInjectionCountFreq(
+#     type_of_attack="Fuzz",
+#     orig_df=simulation_df,
+#     injection_frequency=(5, 30),  # 5 fuzz attacks per 30 messages
+#     label="Fuzz"
+# )
 
-# replay_result = DataInjection(
+# replay_result = CANDataInjectionCountFreq(
 #     type_of_attack="Replay",
 #     orig_df=simulation_df,
 #     injection_df=simulation_df,  # This is required for Replay
