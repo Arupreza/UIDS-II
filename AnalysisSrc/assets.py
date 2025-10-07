@@ -27,6 +27,8 @@ def LoadPreprocessData(df):
     # We combine the fillna and filtering logic for clarity
     df.fillna(-1, inplace=True)
     df = df[df['Intra_ID_Time_Gap'] != -1.0].reset_index(drop=True)
+    df['Intra_ID_Time_Gap_Norm'] = df['Intra_ID_Time_Gap'].apply(IntraIDTimeGapNorm)
+    df['Time_Delta_Norm'] = df['Intra_ID_Time_Gap'].apply(TimeDeltaTimeGapNorm)
 
     return df
 
@@ -76,6 +78,70 @@ def normalize_can_id_by_frequency(df, column_name='CAN_ID'):
     df[normalized_column_name] = df[column_name].map(id_to_category_map)
 
     return df
+
+def IntraIDTimeGapNorm(value):
+    """
+    Normalizes the 'Intra_ID_Time_Gap' value based on predefined ranges.
+
+    Args:
+        value (float): The time gap value to normalize.
+
+    Returns:
+        int: The normalized category (0-6).
+    """
+    if 0 <= value <= 5.1:
+        # Range for category 0
+        return 0
+    elif 5.1 < value <= 10.1:
+        # Range for category 1
+        return 1
+    elif 10.1 < value <= 20.1:
+        # Range for category 2
+        return 2
+    elif 20.1 < value <= 30.1:
+        # Range for category 3
+        return 3
+    elif 30.1 < value <= 40.1:
+        # Range for category 4
+        return 4
+    elif 40.1 < value <= 50.1:
+        # Range for category 5
+        return 5
+    else:
+        # This covers your rule for "50.2 to max" and anything else above 50.1
+        return 6
+
+def TimeDeltaTimeGapNorm(value):
+    """
+    Normalizes the 'Intra_ID_Time_Gap' value based on predefined ranges.
+
+    Args:
+        value (float): The time gap value to normalize.
+
+    Returns:
+        int: The normalized category (0-6).
+    """
+    if 0 <= value <= 0.05:
+        # Range for category 0
+        return 0
+    elif 0.05 < value <=0.1:
+        # Range for category 1
+        return 1
+    elif 0.1 < value <= 0.2:
+        # Range for category 2
+        return 2
+    elif 0.2 < value <= 0.3:
+        # Range for category 3
+        return 3
+    elif 0.3 < value <= 0.4:
+        # Range for category 4
+        return 4
+    elif 0.4 < value <= 0.5:
+        # Range for category 5
+        return 5
+    else:
+        # This covers your rule for "50.2 to max" and anything else above 50.1
+        return 6
 
 def PlotCANIDFrequency(df, column_name='CAN_ID', Data_Name=""):
     """
