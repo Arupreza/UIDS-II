@@ -2,6 +2,26 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+def LoadAllDatasets(Kia, Tesla, Sil, Gen):
+
+    selected_cols = [
+        'Time_Offset', 'CAN_ID_Norm', 'Time_Delta', 'Intra_ID_Time_Gap',
+        'CAN_ID_Norm_Time_Delta', 'Time_Delta_Norm', 'Intra_ID_Time_Gap_Norm', 'Label'
+    ]
+
+    Kia = LoadPreprocessData(Kia)
+    Tesla = LoadPreprocessData(Tesla)
+    Sil = LoadPreprocessData(Sil)
+    Gen = LoadPreprocessData(Gen)
+
+    Kia = Kia[selected_cols]
+    Tesla = Tesla[selected_cols]
+    Sil = Sil[selected_cols]
+    Gen = Gen[selected_cols]
+
+    print("✅ All datasets loaded and preprocessed successfully.")
+    return Kia, Tesla, Sil, Gen
+
 def LoadPreprocessData(df):
     """
     Loads a CSV file and applies a full preprocessing pipeline.
@@ -21,14 +41,14 @@ def LoadPreprocessData(df):
 
     # --- Correctly calculate the time delta WITHIN each normalized group ---
     # This single line replaces your four incorrect lines.
-    df['CAN_ID_Norm_Time_Delta'] = df.groupby('CAN_ID_Norm')['Time_Offset'].diff()
+    df['CAN_ID_Norm_Time_Delta'] = df.groupby('CAN_ID')['Time_Offset'].diff()
 
     # --- Clean the data by removing rows with NaN deltas and reset the index ---
     # We combine the fillna and filtering logic for clarity
     df.fillna(-1, inplace=True)
     df = df[df['Intra_ID_Time_Gap'] != -1.0].reset_index(drop=True)
     df['Intra_ID_Time_Gap_Norm'] = df['Intra_ID_Time_Gap'].apply(IntraIDTimeGapNorm)
-    df['Time_Delta_Norm'] = df['Intra_ID_Time_Gap'].apply(TimeDeltaTimeGapNorm)
+    df['Time_Delta_Norm'] = df['Time_Delta'].apply(TimeDeltaTimeGapNorm)
 
     return df
 
@@ -87,29 +107,42 @@ def IntraIDTimeGapNorm(value):
         value (float): The time gap value to normalize.
 
     Returns:
-        int: The normalized category (0-6).
+        int: The normalized category (0-7).
+        
+    Raises:
+        ValueError: If the input value is negative.
     """
-    if 0 <= value <= 5.1:
-        # Range for category 0
+    # FIX: Add a validation check for negative values at the beginning.
+    if value < 0:
+        raise ValueError("Time gap cannot be negative.")
+
+    if value <= 5.1:
+        # Range for category 0 (includes 0)
         return 0
-    elif 5.1 < value <= 10.1:
+    elif value <= 10.1:
         # Range for category 1
         return 1
-    elif 10.1 < value <= 20.1:
+    elif value <= 20.1:
         # Range for category 2
         return 2
-    elif 20.1 < value <= 30.1:
+    elif value <= 30.1:
         # Range for category 3
         return 3
-    elif 30.1 < value <= 40.1:
+    elif value <= 40.1:
         # Range for category 4
         return 4
-    elif 40.1 < value <= 50.1:
+    elif value <= 50.1:
         # Range for category 5
         return 5
-    else:
-        # This covers your rule for "50.2 to max" and anything else above 50.1
+    elif value <= 2010.1:
+        # Range for category 6
         return 6
+    elif value <= 5010.1:
+        # Range for category 6
+        return 7
+    else:
+        # Handles all values greater than 5010.1
+        return 8
 
 def TimeDeltaTimeGapNorm(value):
     """
@@ -175,3 +208,33 @@ def PlotCANIDFrequency(df, column_name='CAN_ID', Data_Name=""):
 
 # # --- Call the function to generate the plot ---
 # PlotCANIDFrequency(Kia_AF, Data_Name="Kia")
+
+def NormalizePlotComparison(Attack_Free, Attack, column, low, up):
+    """
+    Plots Attack-Free and Attack datasets in separate subplots 
+    (top: Attack-Free, bottom: Attack) against Time_Offset.
+
+    Parameters:
+        Attack_Free (pd.DataFrame): Dataset representing normal or attack-free data.
+        Attack (pd.DataFrame): Dataset representing attack data.
+        column (str): Column name to plot on the y-axis. Default is 'CAN_ID_Norm'.
+        n_samples (int): Number of samples to plot. Default is 2000.
+    """
+    fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+
+    # --- Top subplot: Attack-Free ---
+    axes[0].plot(Attack_Free['Time_Offset'][low:up], Attack_Free[column][low:up], color='tab:blue')
+    axes[0].set_title(f'Attack-Free: {column}')
+    axes[0].set_ylabel(column)
+    axes[0].grid(True)
+
+    # --- Bottom subplot: Attack ---
+    axes[1].plot(Attack['Time_Offset'][low:up], Attack[column][low:up], color='tab:red')
+    axes[1].set_title(f'Attack: {column}')
+    axes[1].set_xlabel('Time_Offset')
+    axes[1].set_ylabel(column)
+    axes[1].grid(True)
+
+    # --- Global layout ---
+    plt.tight_layout()
+    plt.show()
