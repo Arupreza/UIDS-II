@@ -113,8 +113,8 @@ def IntraIDTimeGapNorm(value):
         ValueError: If the input value is negative.
     """
     # FIX: Add a validation check for negative values at the beginning.
-    if value < 0:
-        raise ValueError("Time gap cannot be negative.")
+    # if value < 0:
+    #     raise ValueError("Time gap cannot be negative.")
 
     if value <= 5.1:
         # Range for category 0 (includes 0)

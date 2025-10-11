@@ -21,3 +21,5 @@ CAN-FD_msg_generator(DoS, Fuzzy, Replay).ipynb
 /Input_data/*.csv
 
 Fuzz_Bug.ipynb
+CAN_msg_generator(DoS, Fuzzy, Replay).ipynb
+Binning_Embedding_Bucketization.py
