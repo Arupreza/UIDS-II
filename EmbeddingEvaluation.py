@@ -115,7 +115,7 @@ def visualize_embeddings(model, dataloader, device):
 def main_evaluate():
     # --- 1. Define Constants and Hyperparameters ---
     DATA_DIRECTORY = "/home/lisa/Arupreza/UIDS-II/Input_data/"
-    MODEL_PATH = "/home/lisa/Arupreza/UIDS-II/EmbeddingModelSrc/saved_models/best_can_encoder.safetensors"
+    MODEL_PATH = "/home/lisa/Arupreza/UIDS-II/EmbeddingModelSrc/embedding_model/best_can_encoder.safetensors"
     TIME_GAP = 100
     INPUT_FEATURES = 2
     EMBEDDING_DIM = 128
