@@ -86,24 +86,39 @@ def LoadPreprocessData(file_path):
     Loads and applies a full preprocessing pipeline to a single CSV file.
     """
     try:
-        column_types = {20: str, 22: str, 24: str, 25: str}
-        df = pd.read_csv(file_path, dtype=column_types)
+        # Assuming CAN_ID is not always present, we won't force column types
+        # and will handle potential errors gracefully.
+        df = pd.read_csv(file_path)
     except FileNotFoundError:
         print(f"Error: The file '{file_path}' was not found.")
         return None
+    except Exception as e:
+        print(f"An error occurred while reading {file_path}: {e}")
+        return None
 
     # --- Feature Engineering ---
+    # Check if required columns exist
+    if 'CAN_ID' not in df.columns or 'Time_Offset' not in df.columns:
+        print(f"Warning: 'CAN_ID' or 'Time_Offset' not found in {file_path}. Skipping some preprocessing steps.")
+        return None
+
     df = normalize_can_id_by_frequency(df)
     df['Time_Delta'] = df['Time_Offset'].diff()
     df['Intra_ID_Time_Gap'] = df.groupby('CAN_ID')['Time_Offset'].diff()
 
     # --- Data Cleaning ---
-    df.dropna(subset=['Intra_ID_Time_Gap'], inplace=True)
+    df.dropna(subset=['Intra_ID_Time_Gap', 'Time_Delta'], inplace=True)
     df = df.reset_index(drop=True)
 
     # --- Normalization ---
     df['Intra_ID_Time_Gap_Norm'] = df['Intra_ID_Time_Gap'].apply(IntraIDTimeGapNorm)
     df['Time_Delta_Norm'] = df['Time_Delta'].apply(TimeDeltaTimeGapNorm)
+    
+    # Ensure Label column exists
+    if 'Label' not in df.columns:
+        print(f"Warning: 'Label' column not found in {file_path}. Assuming 'Normal'.")
+        df['Label'] = 'Normal'
+
 
     return df
 
@@ -115,7 +130,7 @@ def SegmentFromFile(data_directory, filename, time_gap):
     full_path = os.path.join(data_directory, filename)
     df = LoadPreprocessData(full_path)
 
-    if df is None:
+    if df is None or df.empty:
         return [], []
 
     df_subset = df[['Time_Offset', 'Time_Delta_Norm', 'Intra_ID_Time_Gap_Norm', 'Label']].copy()
@@ -128,7 +143,7 @@ def SegmentFromFile(data_directory, filename, time_gap):
         window_end = window_start + time_gap
         segment_df = df_subset[(df_subset['Time_Offset'] >= window_start) & (df_subset['Time_Offset'] < window_end)]
         if not segment_df.empty:
-            features = segment_df[['Time_Delta_Norm', 'Intra_ID_Time_Gap_Norm']].values
+            features = segment_df[['Time_Delta_Norm', 'Intra_ID_Time_Gap_Norm']].values.astype(int)
             chunks.append(features)
             is_attack = any(segment_df['Label'] != 'Normal')
             labels.append(1 if is_attack else 0)

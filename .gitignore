@@ -23,7 +23,8 @@ uids/
 Korea_Univ/
 EmbeddingModelSrc/test.ipynb
 EmbeddingModelSrc/embedding_model/
-
+SFTSrc/.env
+/results_llama_classification
 Fuzz_Bug.ipynb
 CAN_msg_generator(DoS, Fuzzy, Replay).ipynb
 Binning_Embedding_Bucketization.py
