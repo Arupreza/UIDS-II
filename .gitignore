@@ -19,6 +19,10 @@ CAN-FD_msg_generator(DoS, Fuzzy, Replay).ipynb
 
 # Ignore CSV files in Input_data folder
 /Input_data/*.csv
+uids/
+Korea_Univ/
+EmbeddingModelSrc/test.ipynb
+EmbeddingModelSrc/embedding_model/
 
 Fuzz_Bug.ipynb
 CAN_msg_generator(DoS, Fuzzy, Replay).ipynb

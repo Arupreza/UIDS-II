@@ -22,7 +22,7 @@ def LoadAllDatasets(Kia, Tesla, Sil, Gen):
     print("✅ All datasets loaded and preprocessed successfully.")
     return Kia, Tesla, Sil, Gen
 
-def LoadPreprocessData(df):
+def LoadPreprocessData(file_path):
     """
     Loads a CSV file and applies a full preprocessing pipeline.
 
@@ -30,23 +30,37 @@ def LoadPreprocessData(df):
         file_path (str): The full path to the input CSV file.
 
     Returns:
-        pd.DataFrame: The fully preprocessed DataFrame.
+        pd.DataFrame: The fully preprocessed DataFrame, or None if the file is not found.
     """
-    file_path = "/home/lisa/Arupreza/UIDS-II/Input_data/"
-    # --- Load and perform initial feature engineering ---
-    df = pd.read_csv(file_path + df)
+    # Proactively add the dtype parameter to prevent DtypeWarning for mixed-type columns.
+    # This is based on the warnings you've received before.
+    column_types = {20: str, 22: str, 24: str, 25: str}
+    
+    try:
+        df = pd.read_csv(file_path, dtype=column_types)
+    except FileNotFoundError:
+        print(f"Error: The file '{file_path}' was not found.")
+        return None
+
+    # --- Feature Engineering ---
+    # (Assuming this helper function exists)
     df = normalize_can_id_by_frequency(df)
+    
+    # Calculate the time since the previous message (global)
     df['Time_Delta'] = df['Time_Offset'].diff()
+    
+    # Calculate the time since the previous message from the SAME CAN_ID
     df['Intra_ID_Time_Gap'] = df.groupby('CAN_ID')['Time_Offset'].diff()
 
-    # --- Correctly calculate the time delta WITHIN each normalized group ---
-    # This single line replaces your four incorrect lines.
-    df['CAN_ID_Norm_Time_Delta'] = df.groupby('CAN_ID')['Time_Offset'].diff()
+    # --- Data Cleaning ---
+    # The first message for each CAN_ID will have a NaN Intra_ID_Time_Gap.
+    # We remove these rows because their time gap is undefined.
+    # Using dropna() is clearer than filling with -1 and then filtering.
+    df.dropna(subset=['Intra_ID_Time_Gap'], inplace=True)
+    df = df.reset_index(drop=True)
 
-    # --- Clean the data by removing rows with NaN deltas and reset the index ---
-    # We combine the fillna and filtering logic for clarity
-    df.fillna(-1, inplace=True)
-    df = df[df['Intra_ID_Time_Gap'] != -1.0].reset_index(drop=True)
+    # --- Normalization ---
+    # (Assuming these helper functions exist)
     df['Intra_ID_Time_Gap_Norm'] = df['Intra_ID_Time_Gap'].apply(IntraIDTimeGapNorm)
     df['Time_Delta_Norm'] = df['Time_Delta'].apply(TimeDeltaTimeGapNorm)
 
