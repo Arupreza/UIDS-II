@@ -62,7 +62,8 @@ VALIDATION_DATA_DIRECTORY = "/home/lisa/Arupreza/UIDS-II/Input_data/Tesla"
 NEW_MODEL_NAME = "tinyllama-can-attack-classifier-adapter"
 
 # Segmentation parameter from your utils file.
-TIME_GAP = 100.0
+TIME_GAP_TRAIN = 100.0
+TIME_GAP_TEST = 85.0
 
 # --- 3. Load and Preprocess Data ---
 
@@ -95,8 +96,8 @@ def load_and_process_data(directory, time_gap):
     return df
 
 # Load training and validation data from their respective directories
-train_df = load_and_process_data(DATA_DIRECTORY, TIME_GAP)
-test_df = load_and_process_data(VALIDATION_DATA_DIRECTORY, TIME_GAP)
+train_df = load_and_process_data(DATA_DIRECTORY, TIME_GAP_TRAIN)
+test_df = load_and_process_data(VALIDATION_DATA_DIRECTORY, TIME_GAP_TEST)
 
 num_labels = pd.concat([train_df['label'], test_df['label']]).nunique()
 print(f"Data formatted. Total number of unique labels across datasets: {num_labels}")
@@ -153,8 +154,8 @@ bnb_config = BitsAndBytesConfig(
 # LoRA configuration
 peft_config = LoraConfig(
     task_type=TaskType.SEQ_CLS, # Specify the task type for classification
-    r=16,                       # Rank of the update matrices
-    lora_alpha=32,              # Alpha parameter for scaling
+    r=2,                       # Rank of the update matrices
+    lora_alpha=4,              # Alpha parameter for scaling
     lora_dropout=0.1,           # Dropout probability
     bias="none",
     target_modules=[            # Target the same modules as in the original script
@@ -196,7 +197,7 @@ def compute_metrics(pred):
     return {'accuracy': acc, 'f1': f1, 'precision': precision, 'recall': recall}
 
 training_arguments = TrainingArguments(
-    output_dir="./results_llama_classification",
+    output_dir="./Llama_Rank_2",
     num_train_epochs=3,
     per_device_train_batch_size=8, # Reduced batch size for larger model
     per_device_eval_batch_size=8,
