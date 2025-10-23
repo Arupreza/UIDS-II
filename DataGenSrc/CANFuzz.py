@@ -108,3 +108,8 @@ def InjectFuzzAattacks(orig_df, injection_frequency=(5, 30), benign_label='Norma
         group_size=group_size,
         label="Fuzz"
     )
+
+# fuzz_attack_df = InjectFuzzAattacks(
+#     orig_df=benign_df,
+#     injection_frequency=attack_frequency
+# )

@@ -30,3 +30,9 @@ CAN_msg_generator(DoS, Fuzzy, Replay).ipynb
 Binning_Embedding_Bucketization.py
 /SFTSrc/tinyllama16/
 /SFTSrc/Llama_Rank_16/
+/Split_data
+/SFTSrc/bert
+/SFTSrc/tinyllama
+/Normal_Dataset
+/Input_data
+/Deployment
