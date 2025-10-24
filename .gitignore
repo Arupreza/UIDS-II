@@ -52,11 +52,6 @@ SFTSrc/bert/TrainTesla/
 SFTSrc/.env
 
 # ==========================================
-# 🧮 Generated Scripts / Binaries
-# ==========================================
-Binning_Embedding_Bucketization.py
-
-# ==========================================
 # 🔧 System / IDE Specific
 # ==========================================
 .vscode/
