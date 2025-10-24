@@ -1,38 +1,65 @@
-# Ignore Python bytecode files
+# ==========================================
+# 🐍 Python-related
+# ==========================================
 __pycache__/
-
-# Ignore Input_data directory
-/Input_data/
-
-# Ignore Img_Data directory (if any)
-Img_Data/
-
-# Ignore specific Jupyter notebooks
-CAN-FD_msg_generator(DoS, Fuzzy, Replay).ipynb
-
-# Ignore all other potential Python files
 *.pyc
 *.pyo
+*.pyd
+*.log
+*.tmp
+*.env
+*.DS_Store
 
-# Ignore Jupyter notebook checkpoints
-.ipynb_checkpoints/
+# Byte-compiled / optimized files
+**/__pycache__/
+**/*.py[cod]
 
-# Ignore CSV files in Input_data folder
-/Input_data/*.csv
-uids/
-Korea_Univ/
-EmbeddingModelSrc/test.ipynb
-EmbeddingModelSrc/embedding_model/
-SFTSrc/.env
-/results_llama_classification
-Fuzz_Bug.ipynb
+# ==========================================
+# 📓 Jupyter Notebooks
+# ==========================================
+*.ipynb_checkpoints/
+*.ipynb_checkpoints/*
+CAN-FD_msg_generator(DoS, Fuzzy, Replay).ipynb
 CAN_msg_generator(DoS, Fuzzy, Replay).ipynb
+Fuzz_Bug.ipynb
+EmbeddingModelSrc/test.ipynb
+
+# ==========================================
+# 📁 Data Directories
+# ==========================================
+Input_data/
+Input_data/*.csv
+Normal_Dataset/
+Split_data/
+Deployment/
+Img_Data/
+results_llama_classification/
+
+# ==========================================
+# 🧠 Model & Training Artifacts
+# ==========================================
+uids/
+SFTSrc/Llama_Rank_2/
+SFTSrc/Llama_Rank_16/
+SFTSrc/tinyllama16/
+SFTSrc/bert/__pycache__/
+SFTSrc/bert/TrainGen/
+SFTSrc/bert/TrainKia/
+SFTSrc/bert/TrainSil/
+SFTSrc/bert/TrainTesla/
+
+# Environment and secrets
+SFTSrc/.env
+
+# ==========================================
+# 🧮 Generated Scripts / Binaries
+# ==========================================
 Binning_Embedding_Bucketization.py
-/SFTSrc/tinyllama16/
-/SFTSrc/Llama_Rank_16/
-/Split_data
-/SFTSrc/bert
-/SFTSrc/tinyllama
-/Normal_Dataset
-/Input_data
-/Deployment
+
+# ==========================================
+# 🔧 System / IDE Specific
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
