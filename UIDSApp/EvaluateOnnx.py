@@ -147,7 +147,6 @@ if __name__ == "__main__":
                         help="Path to ONNX model directory.")
     parser.add_argument("--data", type=str, default="/home/lisa/Arupreza/UIDS-II/Split_data/Test/Tesla/Lower Low",
                         help="Path to CAN CSV directory.")
-    parser.add_argument("--gap", type=float, default=83.0, help="Time gap for segmentation.")
     parser.add_argument("--device", type=str, default="cuda", choices=["cpu", "cuda"], help="Device to use for ONNX Runtime.")
     args = parser.parse_args()
 
@@ -161,7 +160,6 @@ if __name__ == "__main__":
     EvaluateModelOnnx(
         model_path=args.model,
         data_directory=args.data,
-        time_gap=args.gap,
         mode=args.mode,
         device=device_to_use
     )
