@@ -154,8 +154,8 @@ def EvaluateModelOnnx(model_path, data_directory, time_gap, mode="validation", d
 
 # Optional: keep a simple CLI entry point for direct testing
 if __name__ == "__main__":
-    TIME_GAP = 83.0
-    DATA_DIR = "/home/lisa/Arupreza/UIDS-II/Split_data/Test/Tesla/Lower Low"
+    TIME_GAP = 100.0
+    DATA_DIR = "/home/lisa/Arupreza/UIDS-II/Split_data/Test/Kia/Lower Low"
     MODEL_DIR = "/home/lisa/Arupreza/UIDS-II/UIDSApp/OnnxModels/TrainKiaOnnx"
 
     device_to_use = "cuda" if ort.get_device() == "GPU" else "cpu"
