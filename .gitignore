@@ -47,6 +47,7 @@ SFTSrc/bert/TrainGen/
 SFTSrc/bert/TrainKia/
 SFTSrc/bert/TrainSil/
 SFTSrc/bert/TrainTesla/
+SFTSrc/bert/OnnxModels/
 
 # Environment and secrets
 SFTSrc/.env
