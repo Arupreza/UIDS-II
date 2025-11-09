@@ -63,6 +63,10 @@ data_dir = st.text_input(
     "/home/lisa/Arupreza/UIDS-II/Split_data/Test/Tesla/Lower Low"
 )
 
+time_gap = st.number_input(
+    "⏱ Time Gap (seconds)", min_value=1.0, max_value=500.0, value=83.0, step=1.0
+)
+
 device = st.selectbox("💻 ONNX Runtime Device", ["cpu", "cuda"])
 
 mode = st.radio(
@@ -86,6 +90,7 @@ if st.button("🚀 Start"):
             result = EvaluateModelOnnx(
                 model_path=model_path,
                 data_directory=data_dir,
+                time_gap=time_gap,
                 mode=st.session_state.mode,
                 device=device
             )
@@ -142,6 +147,7 @@ if st.button("🚀 Start"):
                 plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
                 plt.tight_layout()
                 st.pyplot(fig)
+
 
             else:
                 st.success(f"✅ Real-Life Inference Completed for {model_name}")
