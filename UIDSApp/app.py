@@ -120,7 +120,7 @@ if st.button("🚀 Start"):
                 im = ax.imshow(cm, cmap="BuPu", interpolation="nearest")
 
                 # Titles and labels
-                ax.set_title(f"Confusion Matrix - {model_name}", fontsize=16, fontweight='bold', pad=20)
+                ax.set_title(f"Model Train On - {model_name}", fontsize=16, fontweight='bold', pad=20)
                 ax.set_xlabel("True Labels", fontsize=13, labelpad=10, color="navy")
                 ax.set_ylabel("Predicted Labels", fontsize=13, labelpad=10, color="blue")
 
