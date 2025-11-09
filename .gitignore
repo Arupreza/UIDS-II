@@ -48,6 +48,9 @@ SFTSrc/bert/TrainKia/
 SFTSrc/bert/TrainSil/
 SFTSrc/bert/TrainTesla/
 SFTSrc/bert/OnnxModels/
+UIDSApp/OnnxModels/
+UIDSApp/Test/
+
 
 # Environment and secrets
 SFTSrc/.env

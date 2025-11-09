@@ -1,0 +1,62 @@
+# === Python cache & virtual env ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+*.pth
+*.egg-info/
+uids/
+env/
+venv/
+.venv/
+*.log
+
+# === Jupyter notebooks & checkpoints ===
+*.ipynb
+.ipynb_checkpoints/
+
+# === System / IDE files ===
+.DS_Store
+.vscode/
+.idea/
+
+# === Data & outputs ===
+*.csv
+*.npy
+*.npz
+*.pt
+*.onnx
+*.h5
+*.pkl
+*.ckpt
+*.tar
+*.gz
+*.zip
+*.rar
+*.log
+*.tmp
+*.bak
+*.swp
+*.out
+datasets/
+data/
+Normal_Dataset/
+Graph_Out/
+Input_data/
+Split_data/
+Deployment/
+Feature_Extraction.ipynb
+Attack_Free_Analysis.ipynb
+Evaluation.ipynb
+Gen_Data.ipynb
+
+# === Git ===
+.git/
+.gitignore
+
+# === Docker artifacts ===
+Dockerfile
+.dockerignore
+
+Test/
