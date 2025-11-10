@@ -1,4 +1,4 @@
-# 🧠 UIDSApp: ONNX Model Evaluation Dashboard
+# 🧠 UIDSApp: Universal Intrusion Detection System for In-Vehicle Network
 
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.0+-red.svg)
