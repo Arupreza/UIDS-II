@@ -1,0 +1,7 @@
+streamlit
+onnxruntime
+numpy
+pandas
+tqdm
+scikit-learn
+transformers

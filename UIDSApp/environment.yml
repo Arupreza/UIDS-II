@@ -1,0 +1,15 @@
+name: uidsapp
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - streamlit
+      - onnxruntime
+      - numpy
+      - pandas
+      - tqdm
+      - scikit-learn
+      - transformers

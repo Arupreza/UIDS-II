@@ -5,11 +5,13 @@ from EvaluateOnnx import EvaluateModelOnnx
 # ======================================================
 # CONFIGURATION
 # ======================================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 MODEL_PATHS = {
-    "Kia": "/home/lisa/Arupreza/UIDS-II/UIDSApp/OnnxModels/TrainKiaOnnx",
-    "Genesis": "/home/lisa/Arupreza/UIDS-II/UIDSApp/OnnxModels/TrainGenOnnx",
-    "Tesla": "/home/lisa/Arupreza/UIDS-II/UIDSApp/OnnxModels/TrainTeslaOnnx",
-    "Silverado": "/home/lisa/Arupreza/UIDS-II/UIDSApp/OnnxModels/TrainSilOnnx",
+    "Kia": os.path.join(BASE_DIR, "OnnxModels", "TrainKiaOnnx"),
+    "Genesis": os.path.join(BASE_DIR, "OnnxModels", "TrainGenOnnx"),
+    "Tesla": os.path.join(BASE_DIR, "OnnxModels", "TrainTeslaOnnx"),
+    "Silverado": os.path.join(BASE_DIR, "OnnxModels", "TrainSilOnnx"),
 }
 
 # ======================================================
