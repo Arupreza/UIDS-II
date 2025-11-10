@@ -35,11 +35,21 @@ This repository implements a production-ready evaluation and inference platform 
 ### 1️⃣ Clone the Repository
 
 ```bash
-git clone https://github.com/<your-repo>/UIDS-II.git
+git clone https://github.com/Arupreza/UIDS-II.git
 cd UIDS-II/UIDSApp
 ```
 
-### 2️⃣ Create Environment from YAML
+### 2️⃣ Download ONNX Models and Test Data
+
+Download the pre-trained ONNX models and test datasets from Google Drive:
+
+**[📥 Download Models & Test Data](https://drive.google.com/drive/folders/1GOdTZ0cb4phX_8hPk1nQmYCGQFQj5PjR?usp=sharing)**
+
+Extract the contents and place them in the appropriate directories:
+- ONNX models → `UIDSApp/OnnxModels/`
+- Test data → Your preferred location (specify path in the dashboard)
+
+### 3️⃣ Create Environment from YAML
 
 All dependencies are managed using `environment.yml`:
 
@@ -108,7 +118,7 @@ pip install -r requirements.txt
 ```
 UIDSApp/
 │
-├── OnnxModels/              # Pre-trained ONNX models
+├── OnnxModels/              # Pre-trained ONNX models (download from Drive)
 │   ├── TrainKiaOnnx/       # Kia vehicle models
 │   ├── TrainGenOnnx/       # Genesis vehicle models
 │   ├── TrainTeslaOnnx/     # Tesla vehicle models
@@ -120,6 +130,8 @@ UIDSApp/
 ├── environment.yml          # Conda environment specification
 └── requirements.txt         # Alternative pip dependencies
 ```
+
+> **Note**: ONNX models and test data must be downloaded separately from [Google Drive](https://drive.google.com/drive/folders/1GOdTZ0cb4phX_8hPk1nQmYCGQFQj5PjR?usp=sharing)
 
 ---
 
@@ -174,6 +186,17 @@ Click **Start** to begin processing:
 ---
 
 ## 🔧 Advanced Configuration
+
+### Download Resources
+
+**ONNX Models and Test Data**: All pre-trained models and evaluation datasets are available on Google Drive:
+
+🔗 **[Download from Google Drive](https://drive.google.com/drive/folders/1GOdTZ0cb4phX_8hPk1nQmYCGQFQj5PjR?usp=sharing)**
+
+The download includes:
+- Pre-trained ONNX models for all vehicle types (Kia, Genesis, Tesla, Silverado)
+- CAN bus test datasets for evaluation
+- Sample data for real-life inference testing
 
 ### Custom Model Integration
 
