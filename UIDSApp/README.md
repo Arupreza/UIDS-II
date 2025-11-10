@@ -60,7 +60,7 @@ conda env create -f environment.yml
 ### 3️⃣ Activate Environment
 
 ```bash
-conda activate uids_env
+conda activate uidsapp
 ```
 
 ### 4️⃣ Launch the Streamlit App
@@ -88,7 +88,7 @@ The environment configuration installs all necessary dependencies:
 **Environment Configuration** (`environment.yml`):
 
 ```yaml
-name: uids_env
+name: uidsapp
 channels:
   - defaults
   - conda-forge
