@@ -10,21 +10,6 @@ A **universal intrusion detection system** for automotive CAN networks using **z
 
 ---
 
-## 📋 Table of Contents
-- [Abstract](#abstract)
-- [Key Features](#key-features)
-- [System Architecture](#system-architecture)
-- [Vehicle Network Comparison](#vehicle-network-comparison)
-- [Dataset Overview](#dataset-overview)
-- [Model Architecture](#model-architecture)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Experimental Results](#experimental-results)
-- [Repository Structure](#repository-structure)
-- [Citation](#citation)
-
----
-
 ## 🎯 Abstract
 
 This project implements a **vehicle-model agnostic intrusion detection system (UIDS)** that generalizes across heterogeneous automotive architectures without requiring vehicle-specific training. The system leverages:
@@ -33,15 +18,13 @@ This project implements a **vehicle-model agnostic intrusion detection system (U
 - **Zero-shot transfer learning** across ICEV, HEV, BEV, and CAN-FD protocols
 - **Cross-laboratory validation** (LISA, HCRL, DTU datasets)
 - **Real-time ONNX inference** with Streamlit dashboard
-- **F1-Score: 0.88-0.99** across all vehicle types
+- **F1-Score: 0.92-0.99** across all vehicle types
 - **Recall: 1.000** from low validation conditions onward
 
 ### Detected Attack Types:
 - **Denial-of-Service (DoS)**: High-priority bus flooding
 - **Fuzzing**: Random malformed message injection
 - **Replay**: Legitimate message retransmission
-- **Fabrication**: Forged ECU messages
-- **Spoofing**: CAN ID impersonation
 
 ---
 
@@ -56,7 +39,7 @@ This project implements a **vehicle-model agnostic intrusion detection system (U
 - **ONNX Deployment**: Production-ready inference with CPU/GPU support
 
 ### ⚡ Performance Advantages
-- **F1-Score**: 0.88-0.99 across all vehicle types
+- **F1-Score**: 0.92-0.99 across all vehicle types
 - **Recall**: 1.000 (perfect attack detection from low condition)
 - **Cross-Domain Transfer**: 93-95% F1 on unseen lab datasets
 - **Real-Time Processing**: Streamlit dashboard with configurable inference
@@ -103,14 +86,14 @@ Our system includes a hardware testbed for safe attack reproduction:
 
 ### Data Collection Sources
 
-| Dataset | Vehicle | Protocol | Source Lab | Scenarios | Total Frames |
-|---------|---------|----------|------------|-----------|--------------|
-| Kia Soul | ICEV | CAN | LISA, HCRL | DoS, Fuzz, Replay | ~23M |
-| Tesla Model 3 | BEV | CAN | LISA | DoS, Fuzz, Replay | ~2.8M |
-| Genesis G80 | ICEV | CAN-FD | LISA | DoS, Fuzz, Replay | ~2.5M |
-| Chevrolet Silverado | HEV | CAN | LISA | DoS, Fuzz, Replay | ~2.6M |
-| Hyundai Sonata | ICEV | CAN | HCRL | Validation | ~2.2M |
-| Subaru Forester | ICEV | CAN | DTU | Validation | ~2.1M |
+| Dataset | Vehicle | Protocol | Source Lab | Scenarios |
+|---------|---------|----------|------------|-----------|
+| Kia Soul | ICEV | CAN | LISA, HCRL | DoS, Fuzz, Replay |
+| Tesla Model 3 | BEV | CAN | LISA | DoS, Fuzz, Replay |
+| Genesis G80 | ICEV | CAN-FD | LISA | DoS, Fuzz, Replay |
+| Chevrolet Silverado | HEV | CAN | LISA | DoS, Fuzz, Replay |
+| Hyundai Sonata | ICEV | CAN | HCRL | Validation |
+| Subaru Forester | ICEV | CAN | DTU | Validation |
 
 ### Attack Injection Statistics
 
@@ -156,52 +139,6 @@ Segmentation ensures consistent message density (>265 frames per window) across 
 - **Feed-Forward Dimension (d_ff)**: 3072
 - **Parameters**: 25.3M (4.3× smaller than BERT-BASE)
 
-### Mathematical Formulation
-
-**Input Encoding**: Each CAN segment is converted to pseudo-linguistic tokens:
-
-```
-t_i = "T⌊Time_Delta_Norm_i⌋ G⌊Intra_ID_Gap_Norm_i⌋"
-```
-
-**Temporal Normalization**:
-
-```
-IntraIDGapNorm(x) = {
-  0: x ≤ 5.1ms
-  1: 5.1 < x ≤ 10.1ms
-  2: 10.1 < x ≤ 20.1ms
-  ...
-  8: x > 5010.1ms
-}
-
-TimeDeltaNorm(x) = {
-  0: 0 ≤ x ≤ 0.05ms
-  1: 0.05 < x ≤ 0.1ms
-  ...
-  6: x > 0.5ms
-}
-```
-
-**Multi-Head Self-Attention**:
-
-```
-Z_l = MHSA(H_{l-1}) = softmax(Q_l K_l^T / √d_k) V_l
-H_l = LayerNorm(H_{l-1} + Z_l)
-H_l = LayerNorm(H̃_l + FFN(H̃_l))
-```
-
-**Classification Head**:
-
-```
-p(y=1|t; θ) = σ(W_c h_CLS + b_c)
-```
-
-**Loss Function**: Binary Cross-Entropy
-
-```
-L(θ) = -1/N Σ[y_i log p_i + (1-y_i) log(1-p_i)]
-```
 
 ### Training Hyperparameters
 
@@ -442,8 +379,6 @@ UIDS-II/
 │   ├── images/
 │   │   ├── vehicle_network_architectures.png  # Fig. 1
 │   │   ├── bert_ids_pipeline.png              # Fig. 4
-│   │   ├── can_simulator.png                  # Testbed diagram
-│   │   └── cross_vehicle_results/             # Performance plots
 │   └── paper.pdf                    # Associated research paper
 │
 ├── data/                            # Datasets (not included)
@@ -461,24 +396,6 @@ UIDS-II/
 ├── requirements.txt                 # Main pip dependencies
 ├── LICENSE
 └── README.md                        # This file
-```
-
----
-
-## 🎓 Citation
-
-If you use this work in your research, please cite:
-
-```bibtex
-@article{islam2025vehicle,
-  title={Vehicle-Model Agnostic Intrusion Detection System through Zero-Shot Temporal Learning on BERT},
-  author={Islam, Md Rezanur and Ryu, Donghyun and Batzorig, Munkhdelgerekh and Yim, Kangbin},
-  journal={Journal of LaTeX Class Files},
-  volume={14},
-  number={8},
-  year={2025},
-  publisher={IEEE}
-}
 ```
 
 ---
@@ -505,7 +422,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 - **Md Rezanur Islam** - arupreza@sch.ac.kr
 - **Donghyun Ryu** - rdh1999@sch.ac.kr
-- **Munkhdelgerekh Batzorig** - munkh@sch.ac.kr
 - **Kangbin Yim** - yim@sch.ac.kr
 
 **Soonchunhyang University**  
