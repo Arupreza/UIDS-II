@@ -369,12 +369,6 @@ UIDS-II/
 │   ├── CAN_attacker.cpp            # Attack vector injection
 │   └── README.md                    # Testbed documentation
 │
-├── Training/                        # Model Training Scripts
-│   ├── train_mobilebert.py         # MobileBERT fine-tuning
-│   ├── preprocess_can.py           # Temporal normalization
-│   ├── export_onnx.py              # ONNX conversion
-│   └── configs/                     # Hyperparameter configs
-│
 ├── docs/
 │   ├── images/
 │   │   ├── vehicle_network_architectures.png  # Fig. 1

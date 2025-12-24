@@ -48,8 +48,19 @@ SFTSrc/bert/TrainKia/
 SFTSrc/bert/TrainSil/
 SFTSrc/bert/TrainTesla/
 SFTSrc/bert/OnnxModels/
+SFTSrc/MACSingle/TrainGenMAC/
+SFTSrc/MACSingle/TrainKiaMAC/
+SFTSrc/MACSingle/TrainSilMAC/
+SFTSrc/MACSingle/TrainTeslaMAC/
+SFTSrc/MACSingle/OnnxModels/
+SFTSrc/titans/TrainGen/
+SFTSrc/titans/TrainKia/
+SFTSrc/titans/TrainSil/
+SFTSrc/titans/TrainTesla/
+SFTSrc/titans/OnnxModels/
 UIDSApp/OnnxModels/
 UIDSApp/Test/
+titans/
 
 
 # Environment and secrets
