@@ -271,6 +271,65 @@ def EvaluateModel(
 #####################################################
 
 
+import os
+import glob
+import numpy as np
+from tqdm import tqdm
+
+import onnxruntime as ort
+from transformers import AutoTokenizer
+
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix
+)
+
+from scipy.stats import norm
+
+
+# ==================================================
+# Confidence Interval Utilities
+# ==================================================
+def wilson_ci(k, n, confidence=0.95):
+    """
+    Wilson score confidence interval for a proportion.
+    """
+    if n == 0:
+        return (0.0, 0.0)
+
+    z = norm.ppf(1 - (1 - confidence) / 2)
+    phat = k / n
+
+    denom = 1 + z**2 / n
+    center = (phat + z**2 / (2 * n)) / denom
+    margin = z * np.sqrt(
+        (phat * (1 - phat) + z**2 / (4 * n)) / n
+    ) / denom
+
+    return center - margin, center + margin
+
+
+def bootstrap_ci(y_true, y_pred, metric_fn, n_bootstrap=1000, confidence=0.95):
+    """
+    Bootstrap confidence interval for metrics without closed form (e.g., F1).
+    """
+    rng = np.random.default_rng(42)
+    scores = []
+    n = len(y_true)
+
+    for _ in range(n_bootstrap):
+        idx = rng.integers(0, n, n)
+        scores.append(metric_fn(y_true[idx], y_pred[idx]))
+
+    lower = np.percentile(scores, (1 - confidence) / 2 * 100)
+    upper = np.percentile(scores, (1 + confidence) / 2 * 100)
+
+    return lower, upper
+
+
 # ==================================================
 # End-to-End ONNX Binary Evaluation
 # ==================================================
@@ -283,18 +342,15 @@ def EvaluateModelOnnx(
 ):
     """
     End-to-end evaluation for ONNX binary IDS classifier
-    (equivalent to PyTorch .pt evaluation).
+    with 95% confidence intervals.
     """
 
     onnx_model_path = os.path.join(model_path, "model.onnx")
     print(f"\n--- Evaluating ONNX Model: {onnx_model_path} ---")
 
-    # -----------------------------
+    # --------------------------------------------------
     # 1. Load tokenizer & ONNX model
-    # -----------------------------
-    import onnxruntime as ort
-    device_to_use = "cuda" if ort.get_device() == "GPU" else "cpu"
-    
+    # --------------------------------------------------
     tokenizer = AutoTokenizer.from_pretrained(model_path)
 
     if device == "cuda" and ort.get_device() == "GPU":
@@ -303,13 +359,12 @@ def EvaluateModelOnnx(
         providers = ["CPUExecutionProvider"]
 
     session = ort.InferenceSession(onnx_model_path, providers=providers)
-
     input_names = [i.name for i in session.get_inputs()]
     output_name = session.get_outputs()[0].name
 
-    # -----------------------------
+    # --------------------------------------------------
     # 2. Load validation data
-    # -----------------------------
+    # --------------------------------------------------
     all_chunks, all_labels = [], []
 
     csv_files = glob.glob(os.path.join(validation_data_directory, "*.csv"))
@@ -330,9 +385,9 @@ def EvaluateModelOnnx(
 
     print(f"Total validation samples: {len(all_chunks)}")
 
-    # -----------------------------
+    # --------------------------------------------------
     # 3. Format input (same as training)
-    # -----------------------------
+    # --------------------------------------------------
     def format_chunk(chunk):
         tokens = []
         for t, g in chunk:
@@ -342,9 +397,9 @@ def EvaluateModelOnnx(
 
     texts = [format_chunk(c) for c in all_chunks]
 
-    # -----------------------------
+    # --------------------------------------------------
     # 4. ONNX inference
-    # -----------------------------
+    # --------------------------------------------------
     all_preds = []
 
     for i in tqdm(range(0, len(texts), batch_size), desc="ONNX Inference"):
@@ -368,26 +423,40 @@ def EvaluateModelOnnx(
         preds = np.argmax(logits, axis=-1)
         all_preds.extend(preds.tolist())
 
-    # -----------------------------
-    # 5. Metrics
-    # -----------------------------
+    # --------------------------------------------------
+    # 5. Metrics + 95% Confidence Intervals
+    # --------------------------------------------------
     y_true = np.array(all_labels)
     y_pred = np.array(all_preds)
 
     acc = accuracy_score(y_true, y_pred)
-    precision, recall, f1, _ = precision_recall_fscore_support(
-        y_true, y_pred, average="binary", zero_division=0
+    precision = precision_score(y_true, y_pred, zero_division=0)
+    recall = recall_score(y_true, y_pred, zero_division=0)
+    f1 = f1_score(y_true, y_pred, zero_division=0)
+
+    # Wilson CIs
+    acc_ci = wilson_ci(np.sum(y_true == y_pred), len(y_true))
+    prec_ci = wilson_ci(
+        np.sum((y_pred == 1) & (y_true == 1)),
+        np.sum(y_pred == 1)
+    )
+    rec_ci = wilson_ci(
+        np.sum((y_pred == 1) & (y_true == 1)),
+        np.sum(y_true == 1)
     )
 
-    print("\n=== Binary IDS Metrics (ONNX) ===")
-    print(f"Accuracy : {acc:.4f}")
-    print(f"Precision: {precision:.4f}")
-    print(f"Recall   : {recall:.4f}")
-    print(f"F1-score : {f1:.4f}")
+    # Bootstrap CI for F1
+    f1_ci = bootstrap_ci(y_true, y_pred, f1_score)
 
-    # -----------------------------
-    # 6. Confusion Matrix (ROW-wise)
-    # -----------------------------
+    print("\n=== Binary IDS Metrics (ONNX) with 95% CI ===")
+    print(f"Accuracy : {acc:.4f}  (95% CI: {acc_ci[0]:.4f}, {acc_ci[1]:.4f})")
+    print(f"Precision: {precision:.4f}  (95% CI: {prec_ci[0]:.4f}, {prec_ci[1]:.4f})")
+    print(f"Recall   : {recall:.4f}  (95% CI: {rec_ci[0]:.4f}, {rec_ci[1]:.4f})")
+    print(f"F1-score : {f1:.4f}  (95% CI: {f1_ci[0]:.4f}, {f1_ci[1]:.4f})")
+
+    # --------------------------------------------------
+    # 6. Confusion Matrix
+    # --------------------------------------------------
     cm = confusion_matrix(y_true, y_pred)
 
     plot_binary_confusion_matrix_rowwise(
@@ -395,27 +464,17 @@ def EvaluateModelOnnx(
         class_names=["Attack Free", "Attack"]
     )
 
+    # --------------------------------------------------
+    # 7. Return results
+    # --------------------------------------------------
     return {
         "accuracy": acc,
+        "accuracy_ci": acc_ci,
         "precision": precision,
+        "precision_ci": prec_ci,
         "recall": recall,
+        "recall_ci": rec_ci,
         "f1": f1,
-        "cm": cm
+        "f1_ci": f1_ci,
+        "confusion_matrix": cm
     }
-
-
-# # Optional: keep a simple CLI entry point for direct testing
-# if __name__ == "__main__":
-#     TIME_GAP = 100.0
-#     DATA_DIR = "/home/lisa/Arupreza/UIDS-II/Split_data/Test/Kia/Lower Low"
-#     MODEL_DIR = "/home/lisa/Arupreza/UIDS-II/UIDSApp/OnnxModels/TrainKiaOnnx"
-
-#     device_to_use = "cuda" if ort.get_device() == "GPU" else "cpu"
-
-#     EvaluateModelOnnx(
-#         model_path=MODEL_DIR,
-#         data_directory=DATA_DIR,
-#         time_gap=TIME_GAP,
-#         mode="validation",
-#         device=device_to_use,
-#     )
