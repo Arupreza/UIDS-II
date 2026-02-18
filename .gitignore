@@ -60,7 +60,7 @@ SFTSrc/titans/TrainTesla/
 SFTSrc/titans/OnnxModels/
 UIDSApp/OnnxModels/
 UIDSApp/Test/
-titans/
+SFTSrc/titans/Models/
 AnalysisSrc/
 DataGenSrc/
 Aljabri Light Adaptive IDS/TestSplit/

@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import numpy as np  # Added for safety with array operations
 
 # ==============================================================================
 # SECTION 1: NORMALIZATION AND FEATURE ENGINEERING HELPERS
@@ -11,8 +12,10 @@ def normalize_can_id_by_frequency(df, column_name='CAN_ID'):
     """
     # Calculate the frequency of each unique CAN ID.
     id_counts = df[column_name].value_counts().reset_index()
-    id_counts.columns = [column_name, 'Count']
-
+    # Handle pandas version differences for column naming
+    if len(id_counts.columns) == 2:
+        id_counts.columns = [column_name, 'Count']
+    
     # Define the categorization logic with non-overlapping bins.
     def assign_category(count):
         if count >= 12000:
@@ -34,61 +37,35 @@ def normalize_can_id_by_frequency(df, column_name='CAN_ID'):
     return df
 
 def IntraIDTimeGapNorm(value):
-    """
-    Normalizes the 'Intra_ID_Time_Gap' value by binning it into categories.
-    """
-    if value is None: return -1 # Handle potential None values
-    if value <= 5.1:
-        return 0
-    elif value <= 10.1:
-        return 1
-    elif value <= 20.1:
-        return 2
-    elif value <= 30.1:
-        return 3
-    elif value <= 40.1:
-        return 4
-    elif value <= 50.1:
-        return 5
-    elif value <= 2010.1:
-        return 6
-    elif value <= 5010.1:
-        return 7
-    else:
-        return 8
+    if value is None: return -1
+    if value <= 5.1: return 0
+    elif value <= 10.1: return 1
+    elif value <= 20.1: return 2
+    elif value <= 30.1: return 3
+    elif value <= 40.1: return 4
+    elif value <= 50.1: return 5
+    elif value <= 2010.1: return 6
+    elif value <= 5010.1: return 7
+    else: return 8
 
 def TimeDeltaTimeGapNorm(value):
-    """
-    Normalizes the 'Time_Delta' value by binning it into categories.
-    """
-    if value is None: return -1 # Handle potential None values
-    if 0 <= value <= 0.05:
-        return 0
-    elif 0.05 < value <= 0.1:
-        return 1
-    elif 0.1 < value <= 0.2:
-        return 2
-    elif 0.2 < value <= 0.3:
-        return 3
-    elif 0.3 < value <= 0.4:
-        return 4
-    elif 0.4 < value <= 0.5:
-        return 5
-    else:
-        return 6
+    if value is None: return -1
+    if 0 <= value <= 0.05: return 0
+    elif 0.05 < value <= 0.1: return 1
+    elif 0.1 < value <= 0.2: return 2
+    elif 0.2 < value <= 0.3: return 3
+    elif 0.3 < value <= 0.4: return 4
+    elif 0.4 < value <= 0.5: return 5
+    else: return 6
 
 # ==============================================================================
 # SECTION 2: CORE DATA PREPROCESSING AND SEGMENTATION
 # ==============================================================================
 
 def LoadPreprocessData(file_path):
-    """
-    Loads and applies a full preprocessing pipeline to a single CSV file.
-    """
     try:
-        # Assuming CAN_ID is not always present, we won't force column types
-        # and will handle potential errors gracefully.
-        df = pd.read_csv(file_path)
+        # Added low_memory=False to fix the DtypeWarning you saw in logs
+        df = pd.read_csv(file_path, low_memory=False)
     except FileNotFoundError:
         print(f"Error: The file '{file_path}' was not found.")
         return None
@@ -97,9 +74,8 @@ def LoadPreprocessData(file_path):
         return None
 
     # --- Feature Engineering ---
-    # Check if required columns exist
     if 'CAN_ID' not in df.columns or 'Time_Offset' not in df.columns:
-        print(f"Warning: 'CAN_ID' or 'Time_Offset' not found in {file_path}. Skipping some preprocessing steps.")
+        print(f"Warning: 'CAN_ID' or 'Time_Offset' not found in {file_path}. Skipping.")
         return None
 
     df = normalize_can_id_by_frequency(df)
@@ -116,17 +92,11 @@ def LoadPreprocessData(file_path):
     
     # Ensure Label column exists
     if 'Label' not in df.columns:
-        print(f"Warning: 'Label' column not found in {file_path}. Assuming 'Normal'.")
         df['Label'] = 'Normal'
-
 
     return df
 
 def SegmentFromFile(data_directory, filename, time_gap):
-    """
-    Loads, preprocesses, and segments data from a single file. This is the
-    primary function used by the main training script.
-    """
     full_path = os.path.join(data_directory, filename)
     df = LoadPreprocessData(full_path)
 
@@ -143,8 +113,11 @@ def SegmentFromFile(data_directory, filename, time_gap):
         window_end = window_start + time_gap
         segment_df = df_subset[(df_subset['Time_Offset'] >= window_start) & (df_subset['Time_Offset'] < window_end)]
         if not segment_df.empty:
+            # Create feature pairs: [Time_Delta_Norm, Intra_ID_Time_Gap_Norm]
             features = segment_df[['Time_Delta_Norm', 'Intra_ID_Time_Gap_Norm']].values.astype(int)
             chunks.append(features)
+            
+            # Label as 1 (Attack) if ANY row in segment is not Normal
             is_attack = any(segment_df['Label'] != 'Normal')
             labels.append(1 if is_attack else 0)
         window_start += time_gap
