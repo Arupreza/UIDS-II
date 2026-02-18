@@ -61,6 +61,10 @@ SFTSrc/titans/OnnxModels/
 UIDSApp/OnnxModels/
 UIDSApp/Test/
 titans/
+AnalysisSrc/
+DataGenSrc/
+Aljabri Light Adaptive IDS/TestSplit/
+Aljabri Light Adaptive IDS/TrainSplit/
 
 
 # Environment and secrets
