@@ -65,6 +65,9 @@ AnalysisSrc/
 DataGenSrc/
 Aljabri Light Adaptive IDS/TestSplit/
 Aljabri Light Adaptive IDS/TrainSplit/
+Jiang Adaptive/Kia_test_20/
+Jiang Adaptive/Kia_train_80/
+Aljabri Light Adaptive IDS/artifacts_deepmlp_kia/
 
 
 # Environment and secrets
