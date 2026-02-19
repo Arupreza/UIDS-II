@@ -16,6 +16,7 @@ from transformers import (
     MobileBertModel,
     TrainingArguments,
     Trainer,
+    EarlyStoppingCallback,
     DataCollatorWithPadding,
 )
 from transformers.modeling_outputs import SequenceClassifierOutput
@@ -444,14 +445,20 @@ def main():
         gradient_accumulation_steps=args.grad_accum, learning_rate=args.lr,
         optim="adamw_torch", logging_steps=25, eval_strategy="epoch", save_strategy="epoch",
         load_best_model_at_end=True, metric_for_best_model="f1", greater_is_better=True,
-        max_grad_norm=1.0, fp16=torch.cuda.is_available()
+        max_grad_norm=1.0, fp16=False
     )
 
     trainer = Trainer(
-        model=model, args=train_args, train_dataset=tokenized["train"], eval_dataset=tokenized["eval"],
-        processing_class=tokenizer, data_collator=collator, compute_metrics=compute_metrics_fn(num_labels)
+        model=model,
+        args=train_args,
+        train_dataset=tokenized["train"],
+        eval_dataset=tokenized["eval"],
+        processing_class=tokenizer,
+        data_collator=collator,
+        compute_metrics=compute_metrics_fn(num_labels),
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)] # Add this line
     )
-
+    
     trainer.train()
     trainer.save_model(args.save_name)
     tokenizer.save_pretrained(args.save_name)
