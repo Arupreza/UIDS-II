@@ -68,6 +68,9 @@ Aljabri Light Adaptive IDS/TrainSplit/
 Jiang Adaptive/Kia_test_20/
 Jiang Adaptive/Kia_train_80/
 Aljabri Light Adaptive IDS/artifacts_deepmlp_kia/
+SFTSrc/titans/Titans_MB_TTT_Output/
+SFTSrc/titans/titans-mobilebert-mac-ttt/
+DATI Domain Adaptive/dati_kia_runs/
 
 
 # Environment and secrets

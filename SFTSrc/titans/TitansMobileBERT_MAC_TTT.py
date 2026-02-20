@@ -18,9 +18,13 @@ from transformers import (
     Trainer,
     EarlyStoppingCallback,
     DataCollatorWithPadding,
+    AutoConfig
 )
 from transformers.modeling_outputs import SequenceClassifierOutput
 
+# ==========================================
+# 1. HELPER FUNCTIONS
+# ==========================================
 
 def set_seed(seed: int = 42):
     random.seed(seed)
@@ -28,7 +32,6 @@ def set_seed(seed: int = 42):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-
 
 def discover_tg_tokens(texts, max_add: int = 50000):
     pat = re.compile(r"^[TG]\d+$")
@@ -43,7 +46,6 @@ def discover_tg_tokens(texts, max_add: int = 50000):
             break
     return sorted(seen)
 
-
 def get_segmenter():
     try:
         from utils import SegmentFromFile
@@ -54,7 +56,6 @@ def get_segmenter():
             "Ensure utils.py is in this folder (or PYTHONPATH).\n"
             f"Original error: {repr(e)}"
         )
-
 
 def load_and_process_data(directory: str, time_gap: float, segment_from_file_fn):
     print(f"[Data] Loading from: {directory}")
@@ -79,6 +80,9 @@ def load_and_process_data(directory: str, time_gap: float, segment_from_file_fn)
     texts = [chunk_to_string(c) for c in all_chunks]
     return pd.DataFrame({"text": texts, "label": all_labels})
 
+# ==========================================
+# 2. MODEL ARCHITECTURE
+# ==========================================
 
 class LinearAssociativeTTTMemory(nn.Module):
     def __init__(self, d_key, d_mem, num_steps, theta, eta, alpha, grad_clip):
@@ -124,7 +128,6 @@ class LinearAssociativeTTTMemory(nn.Module):
             
         return W, S
 
-
 class TitansMBConfig(PretrainedConfig):
     model_type = "titans_mobilebert_mac_ttt"
 
@@ -158,98 +161,8 @@ class TitansMBConfig(PretrainedConfig):
         self.grad_clip = grad_clip
         self.stop_grad_ttt = stop_grad_ttt
 
-
-class TitansMobileBertMACTTT(PreTrainedModel):
-    config_class = TitansMBConfig
-
-    def __init__(self, config: TitansMBConfig, hf_token: str | None = None, class_weights=None):
-        super().__init__(config)
-
-        self.backbone = MobileBertModel.from_pretrained(config.base_model_name, token=hf_token)
-        
-        # MobileBERT Specifics
-        # embedding_size is 128 (input to encoder)
-        # hidden_size is 512 (output of encoder)
-        self.emb_size = self.backbone.config.embedding_size
-        self.hidden_size = self.backbone.config.hidden_size
-
-        self.persistent_raw = nn.Parameter(torch.randn(config.num_persistent_tokens, self.hidden_size) * 0.02)
-
-        # --- KEY FIX ---
-        # 1. Projection for Query (comes from raw embeddings: size 128)
-        self.emb_to_q = nn.Sequential(nn.Linear(self.emb_size, config.d_key), nn.SiLU())
-
-        # 2. Projection for Key/Value (comes from encoder output: size 512)
-        self.out_to_k = nn.Sequential(nn.Linear(self.hidden_size, config.d_key), nn.SiLU())
-        self.out_to_v = nn.Sequential(nn.Linear(self.hidden_size, config.d_mem), nn.SiLU())
-
-        self.ltm = LinearAssociativeTTTMemory(
-            d_key=config.d_key,
-            d_mem=config.d_mem,
-            num_steps=config.num_ttt_steps,
-            theta=config.theta,
-            eta=config.eta,
-            alpha=config.alpha,
-            grad_clip=config.grad_clip,
-        )
-
-        self.mem_to_token = nn.Linear(config.d_mem, self.hidden_size)
-        self.classifier = nn.Linear(self.hidden_size, config.num_labels)
-
-        if class_weights is not None:
-            self.register_buffer("class_weights", class_weights)
-        else:
-            self.class_weights = None
-
-        self.post_init()
-
-    def get_input_embeddings(self):
-        return self.backbone.get_input_embeddings()
-
-    def set_input_embeddings(self, value):
-        self.backbone.set_input_embeddings(value)
-
-    @staticmethod
-    def masked_mean(x, mask):
-        mask = mask.unsqueeze(-1).type_as(x)
-        denom = mask.sum(dim=1).clamp(min=1.0)
-        return (x * mask).sum(dim=1) / denom
-
-    def _run_segment(self, seg_ids, seg_mask, W, S, training: bool):
-        B, Ls = seg_ids.shape
-        device = seg_ids.device
-
-        # Raw embeddings [B, Ls, 128]
-        word_emb = self.get_input_embeddings()(seg_ids)
-
-        # 1. RETRIEVE: uses raw embedding size (128)
-        seg_summary = self.masked_mean(word_emb, seg_mask)  # [B, 128]
-        q = self.emb_to_q(seg_summary)                      # [B, d_key]
-        
-        h = self.ltm.retrieve(q, W)                         # [B, d_mem]
-        h_token = self.mem_to_token(h).unsqueeze(1)         # [B, 1, 512] -> expanded to hidden size
-
-        P = self.persistent_raw.unsqueeze(0).expand(B, -1, -1) # [B, Np, 512]
-        
-        # We need to project word_emb (128) up to 512 to concatenate with P and h_token
-        # MobileBERT normally handles this internal projection, but since we are
-        # messing with inputs_embeds, we must be careful.
-        # However, MobileBERT's forward() expects inputs_embeds of size `embedding_size` (128).
-        # Wait, P and h_token are size 512. This concatenation will fail if word_emb is 128.
-        
-        # CRITICAL MOBILEBERT DETAIL: 
-        # MobileBERT's embeddings are 128. The first layer projects them to 512.
-        # But `inputs_embeds` argument typically replaces the lookup.
-        # If we provide inputs_embeds, they must match the embedding layer output size (128).
-        
-        # RE-FIX:
-        # We should keep P and h_token at size 128 (embedding size) so they can be concatenated
-        # with word_emb (128) and passed into the backbone.
-        
-        # Let's override the P and h_token dimensions to match embedding size.
-        
-        pass 
-        # (I will implement the dimension fix in the logic below)
+# Register the config so AutoModel can find it later
+AutoConfig.register("titans_mobilebert_mac_ttt", TitansMBConfig)
 
 class TitansMobileBertMACTTT_Fixed(PreTrainedModel):
     config_class = TitansMBConfig
@@ -259,6 +172,11 @@ class TitansMobileBertMACTTT_Fixed(PreTrainedModel):
 
         self.backbone = MobileBertModel.from_pretrained(config.base_model_name, token=hf_token)
         
+        # Resize if vocab size in config doesn't match backbone (Critical for loading checkpoints)
+        if self.backbone.config.vocab_size != config.vocab_size:
+            print(f"Resizing backbone embeddings from {self.backbone.config.vocab_size} to {config.vocab_size}")
+            self.backbone.resize_token_embeddings(config.vocab_size, mean_resizing=False)
+
         self.emb_size = self.backbone.config.embedding_size       # 128
         self.hidden_size = self.backbone.config.hidden_size       # 512
 
@@ -282,6 +200,8 @@ class TitansMobileBertMACTTT_Fixed(PreTrainedModel):
 
         if class_weights is not None:
             self.register_buffer("class_weights", class_weights)
+        else:
+            self.class_weights = None
 
         self.post_init()
 
@@ -290,6 +210,8 @@ class TitansMobileBertMACTTT_Fixed(PreTrainedModel):
     
     @staticmethod
     def masked_mean(x, mask):
+        # This handles the "Variable Chunk Size" issue.
+        # It ignores padding tokens (where mask=0) so empty time doesn't confuse memory.
         mask = mask.unsqueeze(-1).type_as(x)
         denom = mask.sum(dim=1).clamp(min=1.0)
         return (x * mask).sum(dim=1) / denom
@@ -318,9 +240,8 @@ class TitansMobileBertMACTTT_Fixed(PreTrainedModel):
         attn_mask = torch.cat([prefix_mask, seg_mask], dim=1)
 
         # 5. Run Backbone
-        out = self.backbone(inputs_embeds=inputs_embeds, attention_mask=attn_mask).last_hidden_state
-        # Output is [B, Total, 512] (MobileBERT projects up to 512 internally)
-
+        out = self.backbone(inputs_embeds=inputs_embeds, attention_mask=attn_mask).last_hidden_state # [B, 512]
+        
         # 6. Update Memory (using output 512)
         seg_out = out[:, -Ls:, :] # [B, Ls, 512]
         pooled = self.masked_mean(seg_out, seg_mask) # [B, 512]
@@ -339,7 +260,7 @@ class TitansMobileBertMACTTT_Fixed(PreTrainedModel):
         if attention_mask is None: attention_mask = torch.ones_like(input_ids)
         B, T = input_ids.shape
         
-        # Padding
+        # Padding to segment length
         rem = T % self.config.segment_len
         if rem:
             pad = self.config.segment_len - rem
@@ -349,6 +270,7 @@ class TitansMobileBertMACTTT_Fixed(PreTrainedModel):
         W, S = self.ltm.init_state(B, input_ids.device)
         pooled_last = None
         
+        # Segment Loop
         for i in range(0, input_ids.shape[1], self.config.segment_len):
             ids = input_ids[:, i:i+self.config.segment_len]
             mask = attention_mask[:, i:i+self.config.segment_len]
@@ -357,6 +279,10 @@ class TitansMobileBertMACTTT_Fixed(PreTrainedModel):
         logits = self.classifier(pooled_last)
         loss = F.cross_entropy(logits, labels, weight=self.class_weights) if labels is not None else None
         return SequenceClassifierOutput(loss=loss, logits=logits)
+
+# ==========================================
+# 3. METRICS & MAIN
+# ==========================================
 
 def compute_metrics_fn(num_labels: int):
     def compute_metrics(pred):
@@ -373,7 +299,7 @@ def main():
     ap.add_argument("--train_dir", type=str, required=True)
     ap.add_argument("--val_dir", type=str, required=True)
     ap.add_argument("--save_name", type=str, default="titans-mobilebert-mac-ttt")
-    ap.add_argument("--output_dir", type=str, default="./TitansMobileBERT_MAC_TTT")
+    ap.add_argument("--output_dir", type=str, default="./Titans_MB_TTT_Output")
     ap.add_argument("--tokenizer_name", type=str, default="google/mobilebert-uncased")
     ap.add_argument("--base_model_name", type=str, default="google/mobilebert-uncased")
     ap.add_argument("--hf_token", type=str, default=None)
@@ -410,34 +336,44 @@ def main():
     num_labels = int(pd.concat([train_df["label"], val_df["label"]]).nunique())
 
     raw = DatasetDict({"train": Dataset.from_pandas(train_df), "eval": Dataset.from_pandas(val_df)})
+    
+    print(f"[Tok] Loading tokenizer: {args.tokenizer_name}")
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, token=hf_token)
 
     if args.add_tg_tokens:
         toks = discover_tg_tokens(train_df["text"].tolist(), max_add=args.max_add_tokens)
         tokenizer.add_tokens(toks, special_tokens=False)
+        print(f"[Tok] Added {len(toks)} tokens.")
 
     def tok_fn(batch): return tokenizer(batch["text"], truncation=True, padding=False, max_length=args.max_len)
+    
     tokenized = raw.map(tok_fn, batched=True).remove_columns(["text"])
     if "__index_level_0__" in tokenized["train"].column_names: tokenized = tokenized.remove_columns(["__index_level_0__"])
     tokenized = tokenized.rename_column("label", "labels")
     tokenized.set_format("torch")
 
+    # DataCollatorWithPadding helps handle VARIABLE chunk sizes by dynamic padding
     collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    
+    # Class weights for imbalance
     y = torch.tensor(train_df["label"].values, dtype=torch.long)
     counts = torch.bincount(y, minlength=num_labels).float()
     weights = counts.sum() / (counts + 1e-6)
     weights = weights / weights.mean()
+    print(f"[Loss] class weights: {weights.tolist()}")
 
     config = TitansMBConfig(
         base_model_name=args.base_model_name, num_labels=num_labels, segment_len=args.segment_len,
         num_persistent_tokens=args.persistent_tokens, d_key=args.d_key, d_mem=args.d_mem,
         num_ttt_steps=args.ttt_steps, theta=args.theta, eta=args.eta, alpha=args.alpha,
-        grad_clip=args.grad_clip, stop_grad_ttt=args.stop_grad_ttt
+        grad_clip=args.grad_clip, stop_grad_ttt=args.stop_grad_ttt,
+        vocab_size=len(tokenizer) # Pass new vocab size to config
     )
 
-    # Use the FIXED model class
     model = TitansMobileBertMACTTT_Fixed(config=config, hf_token=hf_token, class_weights=weights)
-    model.resize_token_embeddings(len(tokenizer))
+    
+    # Critical: Resize embeddings safely
+    model.resize_token_embeddings(len(tokenizer), mean_resizing=False)
 
     train_args = TrainingArguments(
         output_dir=args.output_dir, num_train_epochs=args.epochs,
@@ -445,7 +381,8 @@ def main():
         gradient_accumulation_steps=args.grad_accum, learning_rate=args.lr,
         optim="adamw_torch", logging_steps=25, eval_strategy="epoch", save_strategy="epoch",
         load_best_model_at_end=True, metric_for_best_model="f1", greater_is_better=True,
-        max_grad_norm=1.0, fp16=False
+        max_grad_norm=1.0, 
+        fp16=False # FIX for NaN gradients
     )
 
     trainer = Trainer(
@@ -456,10 +393,13 @@ def main():
         processing_class=tokenizer,
         data_collator=collator,
         compute_metrics=compute_metrics_fn(num_labels),
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)] # Add this line
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
     )
     
+    print("[Train] Starting training...")
     trainer.train()
+    
+    print(f"[Save] Saving model to {args.save_name}")
     trainer.save_model(args.save_name)
     tokenizer.save_pretrained(args.save_name)
 
@@ -467,15 +407,3 @@ if __name__ == "__main__":
     main()
 
 
-# python TitansMobileBERT_MAC_TTT.py \
-#     --train_dir /home/lisa/Arupreza/UIDS-II/Split_data/Train/Kia \
-#     --val_dir /home/lisa/Arupreza/UIDS-II/Split_data/Val \
-#     --save_name titans-mobilebert-mac-ttt \
-#     --output_dir ./Titans_MB_TTT_Output \
-#     --time_gap_train 100.0 \
-#     --time_gap_val 93.0 \
-#     --epochs 15 \
-#     --train_bs 8 \
-#     --eval_bs 8 \
-#     --grad_accum 2 \
-#     --add_tg_tokens
