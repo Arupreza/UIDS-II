@@ -38,26 +38,7 @@ results_llama_classification/
 # ==========================================
 # 🧠 Model & Training Artifacts
 # ==========================================
-uids/
-SFTSrc/Llama_Rank_2/
-SFTSrc/Llama_Rank_16/
-SFTSrc/tinyllama16/
-SFTSrc/bert/__pycache__/
-SFTSrc/bert/TrainGen/
-SFTSrc/bert/TrainKia/
-SFTSrc/bert/TrainSil/
-SFTSrc/bert/TrainTesla/
-SFTSrc/bert/OnnxModels/
-SFTSrc/MACSingle/TrainGenMAC/
-SFTSrc/MACSingle/TrainKiaMAC/
-SFTSrc/MACSingle/TrainSilMAC/
-SFTSrc/MACSingle/TrainTeslaMAC/
-SFTSrc/MACSingle/OnnxModels/
-SFTSrc/titans/TrainGen/
-SFTSrc/titans/TrainKia/
-SFTSrc/titans/TrainSil/
-SFTSrc/titans/TrainTesla/
-SFTSrc/titans/OnnxModels/
+
 UIDSApp/OnnxModels/
 UIDSApp/Test/
 SFTSrc/titans/Models/
@@ -71,6 +52,28 @@ Aljabri Light Adaptive IDS/artifacts_deepmlp_kia/
 SFTSrc/titans/Titans_MB_TTT_Output/
 SFTSrc/titans/titans-mobilebert-mac-ttt/
 DATI Domain Adaptive/dati_kia_runs/
+
+SFTSrc/AlBert/TrainGen/
+SFTSrc/AlBert/TrainKia/
+SFTSrc/AlBert/TrainSil/
+SFTSrc/AlBert/TrainTesla/
+
+SFTSrc/Bert/TrainGen/
+SFTSrc/Bert/TrainKia/
+SFTSrc/Bert/TrainSil/
+SFTSrc/Bert/TrainTesla/
+
+SFTSrc/MobileBert/TrainGen/
+SFTSrc/MobileBert/TrainKia/
+SFTSrc/MobileBert/TrainSil/
+SFTSrc/MobileBert/TrainTesla/
+SFTSrc/MobileBert/OnnxModels/
+
+SFTSrc/TinyBert/TrainGen/
+SFTSrc/TinyBert/TrainKia/
+SFTSrc/TinyBert/TrainSil/
+SFTSrc/TinyBert/TrainTesla/
+
 
 
 # Environment and secrets
