@@ -1,188 +1,158 @@
-# 🧠 UIDS-II: Vehicle-Model Agnostic Intrusion Detection System
+# Vehicle-Model-Agnostic Intrusion Detection System (UIDS-II)
+
+A **zero-shot transfer intrusion detection system** for heterogeneous in-vehicle networks (IVNs) using timing-based temporal learning and MobileBERT. Achieves cross-vehicle generalization across ICEV, HEV, BEV platforms and both CAN and CAN-FD protocols **without vehicle-specific retraining**.
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.0+-red.svg)](https://streamlit.io/)
-[![ONNX Runtime](https://img.shields.io/badge/ONNX%20Runtime-Latest-green.svg)](https://onnxruntime.ai/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-orange.svg)](https://pytorch.org/)
+[![ONNX Runtime](https://img.shields.io/badge/ONNX%20Runtime-Latest-green.svg)](https://onnxruntime.ai/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.0+-red.svg)](https://streamlit.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A **universal intrusion detection system** for automotive CAN networks using **zero-shot temporal learning on BERT**. The system achieves cross-vehicle generalization across ICEV, HEV, BEV, and CAN-FD platforms without vehicle-specific retraining.
+---
+
+## 🎯 Overview
+
+Modern vehicles exhibit extreme heterogeneity across propulsion platforms (ICEV, HEV, BEV), communication protocols (CAN, CAN-FD), and ECU architectures. Conventional intrusion detection systems rely on proprietary CAN identifiers and payload semantics (DBC files), forcing per-vehicle customization and preventing scalable cross-fleet deployment.
+
+This work proposes a **vehicle-model-agnostic IDS** that:
+- ✅ Transfers across heterogeneous platforms **without retraining**
+- ✅ Uses only timing features (inter-frame and intra-ID deltas)
+- ✅ Eliminates DBC and manufacturer-specific dependencies
+- ✅ Achieves **F1 = 0.92–0.99** across all vehicle types
+- ✅ Maintains **Recall = 1.000** from low injection intensity onward
+- ✅ Detects DoS, Fuzzing, Replay, Malfunction, and Spoofing attacks
 
 ---
 
-## 🎯 Abstract
+## 📋 Key Technical Contributions
 
-This project implements a **vehicle-model agnostic intrusion detection system (UIDS)** that generalizes across heterogeneous automotive architectures without requiring vehicle-specific training. The system leverages:
+### 1. **Vehicle-Model-Agnostic Feature Mapping**
+Instead of raw CAN identifiers and payloads, the system extracts two timing descriptors:
+- **Inter-Frame Delta** (Δt_i): Elapsed time between consecutive frames
+- **Intra-ID Delta** (Δt^(c)_i): Time since last frame with same identifier
 
-- **MobileBERT-based temporal learning** for CAN traffic classification
-- **Zero-shot transfer learning** across ICEV, HEV, BEV, and CAN-FD protocols
-- **Cross-laboratory validation** (LISA, HCRL, DTU datasets)
-- **Real-time ONNX inference** with Streamlit dashboard
-- **F1-Score: 0.92-0.99** across all vehicle types
-- **Recall: 1.000** from low validation conditions onward
+These descriptors are:
+- **DBC-independent**: No proprietary signal definitions required
+- **Identifier-invariant**: Robust to arbitrary CAN ID relabeling across vehicles
+- **Protocol-agnostic**: Work equally on CAN and CAN-FD
 
-### Detected Attack Types:
-- **Denial-of-Service (DoS)**: High-priority bus flooding
-- **Fuzzing**: Random malformed message injection
-- **Replay**: Legitimate message retransmission
+### 2. **Ordinal Discretization & Density-Based Windowing**
+- Timing descriptors binned into ordinal levels (7 and 9 levels respectively)
+- Suppresses noise while preserving temporal structure
+- **Adaptive window calibration**: Vehicle-specific temporal window duration computed once at installation
+  - Targets 250–280 frames per window
+  - Normalizes cross-vehicle traffic density variation
 
----
+### 3. **MobileBERT-Based Lightweight Classification**
+- **Compact Transformer**: 24 layers, 512 hidden dimensions, 8 attention heads
+- **4.3× smaller than BERT-BASE**: ~25.3M parameters
+- **Bottlenecked architecture**: Reduced per-layer computation for in-vehicle deployment
+- **Parameter-efficient fine-tuning**: Only adapter layers and classification head trained
 
-## ✨ Key Features
-
-### 🔬 Technical Innovations
-- **Universal Detection**: Single model works across Kia (ICEV), Tesla (BEV), Genesis (CAN-FD), Silverado (HEV)
-- **Zero-Shot Learning**: No vehicle-specific fine-tuning required
-- **Temporal Normalization**: Adaptive time-gap segmentation (τ = 83-160s)
-- **MobileBERT Architecture**: 24 layers, 512 hidden dimensions, 8 attention heads
-- **Cross-Lab Generalization**: Trained on LISA, validated on HCRL/DTU
-- **ONNX Deployment**: Production-ready inference with CPU/GPU support
-
-### ⚡ Performance Advantages
-- **F1-Score**: 0.92-0.99 across all vehicle types
-- **Recall**: 1.000 (perfect attack detection from low condition)
-- **Cross-Domain Transfer**: 93-95% F1 on unseen lab datasets
-- **Real-Time Processing**: Streamlit dashboard with configurable inference
-- **Memory Efficient**: MobileBERT (4.3× smaller than BERT-BASE)
+### 4. **Comprehensive Cross-Domain Validation**
+- **Cross-vehicle**: ICEV ↔ HEV ↔ BEV transfer without fine-tuning
+- **Cross-protocol**: CAN ↔ CAN-FD seamless transfer
+- **Cross-laboratory**: LISA → HCRL/DTU zero-adaptation evaluation
+- **Cross-attack-type**: Trained on DoS/Fuzz/Replay, generalizes to Malfunction/Spoofing
+- **Cross-frequency**: Handles high, medium, low, lower-low, and random injection rates
 
 ---
 
 ## 🏗️ System Architecture
 
-### Vehicle Communication Network Comparison
-
-![Vehicle Network Architectures](docs/vehicle_network_architectures.png)
-*Fig. 1: Comparison of in-vehicle network architectures across ICEV, HEV, and BEV platforms showing protocol differences (CAN, CAN-FD, CAN-XL) and control unit distributions.*
-
-The figure illustrates fundamental architectural differences:
-
-| Vehicle Type | Primary Protocol | Key Control Units | Network Complexity |
-|-------------|------------------|-------------------|-------------------|
-| **ICEV** | CAN (1 Mbps) | ECU, BCM, TCM | Simple, mechanical-centric |
-| **HEV** | CAN-FD (8 Mbps) | HCU, ECU, BMS | Dual powertrain coordination |
-| **BEV** | CAN-XL (20 Mbps) | PCM, BMS, thermal mgmt | Software-centric, high-bandwidth |
-
-### CAN Simulator Testbed
-
-Our system includes a hardware testbed for safe attack reproduction:
-
-**Components**:
-- **Transmitter Node**: Reproduces legitimate CAN traffic from logs
-- **Attacker Node**: Injects DoS, Fuzzing, Replay, Fabrication attacks
-- **Receiver Node**: Real-time monitoring and IDS evaluation
-
-**Hardware**: NVIDIA Jetson AGX Xavier with SN65HVD230 CAN transceiver
-
-**Software**: C++17-based SocketCAN implementation with threaded attack vectors
-
----
-
-## 📊 Dataset Overview
-
-### Temporal Normalization Pipeline
-
-![BERT-based IDS Pipeline](docs/bert_ids_pipeline.png)
-*Fig. 4: End-to-end pipeline from CAN time-gap extraction through tokenization to BERT-based binary classification.*
-
-### Data Collection Sources
-
-| Dataset | Vehicle | Protocol | Source Lab | Scenarios |
-|---------|---------|----------|------------|-----------|
-| Kia Soul | ICEV | CAN | LISA, HCRL | DoS, Fuzz, Replay |
-| Tesla Model 3 | BEV | CAN | LISA | DoS, Fuzz, Replay |
-| Genesis G80 | ICEV | CAN-FD | LISA | DoS, Fuzz, Replay |
-| Chevrolet Silverado | HEV | CAN | LISA | DoS, Fuzz, Replay |
-| Hyundai Sonata | ICEV | CAN | HCRL | Validation |
-| Subaru Forester | ICEV | CAN | DTU | Validation |
-
-### Attack Injection Statistics
-
-| Attack Type | Intensity | Total Messages | Injected | Injection Rate |
-|-------------|-----------|----------------|----------|----------------|
-| **DoS** | High | 760,000 | 160,000 | 21.05% |
-| | Medium | 700,000 | 100,000 | 14.29% |
-| | Low | 640,000 | 40,000 | 6.25% |
-| | Lower-Low | 618,100 | 18,179 | 2.94% |
-| **Fuzzing** | High | 760,000 | 160,000 | 21.05% |
-| | Medium | 700,000 | 100,000 | 14.29% |
-| | Low | 640,000 | 40,000 | 6.25% |
-| **Replay** | High | 760,000 | 160,000 | 21.05% |
-| | Medium | 700,000 | 100,000 | 14.29% |
-| | Low | 640,000 | 40,000 | 6.25% |
-
-### Temporal Segmentation Strategy
-
-To harmonize heterogeneous CAN traffic, adaptive time-chunking is applied:
+### End-to-End Pipeline
 
 ```
-τ_v = {
-  160s  for Subaru Forester (DTU)
-  125s  for Kia Soul (HCRL)
-  100s  for Kia Soul, Silverado (LISA)
-  83s   for Tesla (LISA)
-}
+CAN Stream → Timing Extraction → Ordinal Discretization → Token Encoding 
+         → Density-Based Windowing → WordPiece Tokenization 
+         → MobileBERT Encoder → Binary Classification (Attack/Normal)
 ```
 
-Segmentation ensures consistent message density (>265 frames per window) across all datasets.
+### Feature Space Transformation
+
+| Stage | Input | Output | Purpose |
+|-------|-------|--------|---------|
+| **Timing Extraction** | Raw CAN frames (t_i, c_i, d_i) | Δt_i, Δt^(c)_i | Vehicle-independent temporal features |
+| **Discretization** | Continuous timing values | Integer bins (0–6, 0–8) | Suppress noise, fixed vocabulary |
+| **Token Encoding** | Discretized pairs | String tokens (e.g., "DT3 DG1") | Transformer input format |
+| **Windowing** | Frame sequence | Fixed-duration windows | Temporal aggregation |
+| **Classification** | Token sequences | Attack probability | Binary decision |
+
+### Vehicle Communication Architectures
+
+```
+ICEV (e.g., Kia Soul)
+├─ Protocol: CAN (1 Mbps, 8-byte payload)
+├─ Key ECUs: ECM, TCM, BCM
+└─ CAN IDs: 79 (typical)
+
+HEV (e.g., Chevrolet Silverado)
+├─ Protocol: CAN (1 Mbps)
+├─ Key ECUs: ECM, HCU, TCM, BCM, BMS
+└─ CAN IDs: 98 (typical)
+
+BEV (e.g., Tesla Model 3)
+├─ Protocol: CAN (1 Mbps)
+├─ Key ECUs: PCM, BMS, Thermal Mgmt
+└─ CAN IDs: 69 (typical)
+
+CAN-FD (e.g., Genesis G80)
+├─ Protocol: CAN-FD (8 Mbps, 64-byte payload)
+├─ Key ECUs: ECM, TCM, BCM, BMS
+└─ CAN IDs: 58 (typical)
+```
 
 ---
 
-## 🧠 Model Architecture
+## 🔬 Why It Works Across Different Vehicles
 
-### MobileBERT Configuration
+### The Problem with Traditional Approaches
 
-**Base Architecture**:
-- **Model**: `google/mobilebert-uncased`
-- **Layers (L)**: 24 transformer encoder blocks
-- **Hidden Dimension (d_h)**: 512
-- **Attention Heads (h)**: 8
-- **Feed-Forward Dimension (d_ff)**: 3072
-- **Parameters**: 25.3M (4.3× smaller than BERT-BASE)
+Most IDS systems depend on **CAN message IDs and data content**, which vary between vehicle brands:
+- Kia Soul uses CAN ID 0x123 for engine data
+- Tesla Model 3 uses CAN ID 0x456 for the same purpose
+- This difference **forces separate models for each vehicle**
 
+### Our Solution: Focus on Timing, Not Content
 
-### Training Hyperparameters
+Instead, we only look at **when messages arrive**, not what they contain:
+- **Inter-Frame Delta**: Time gap between any two consecutive messages
+- **Intra-ID Delta**: Time gap between messages with the same ID
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| **Epochs** | 3 | Full dataset passes |
-| **Batch Size** | 8 | Per-device mini-batch |
-| **Learning Rate** | 2×10⁻⁵ | AdamW optimizer |
-| **Gradient Accumulation** | 2 steps | Simulates larger batch |
-| **Max Sequence Length** | 512 tokens | Tokenizer limit |
-| **Dropout** | 0.1 | Regularization |
-| **Loss** | Binary Cross-Entropy | Attack vs. Normal |
+These timing patterns:
+- ✅ Work the same across all vehicles
+- ✅ Don't change regardless of CAN ID values
+- ✅ Disrupted in the same way by all injection attacks
+
+### One Model for All Vehicles
+
+- Train on one vehicle (e.g., Kia)
+- Use on any other vehicle (Tesla, Genesis, Silverado) **without retraining**
+- Only adaptation: Learn the vehicle's natural message rate (10-30 seconds, once)
 
 ---
 
-## 📈 Experimental Results
+## 📊 Experimental Results
 
-### Cross-Vehicle Generalization
+### Cross-Vehicle Evaluation (Zero-Adaptation)
 
-#### Train on Kia (CAN-ICEV) → Test on Other Vehicles
+#### Train on Kia (CAN-ICEV) → Test on Others
 
 | Target Vehicle | Protocol | F1-Score | Recall | Precision |
 |----------------|----------|----------|--------|-----------|
+| Genesis | CAN-FD | **0.974** | 1.000 | 0.949 |
 | Tesla | CAN-BEV | **0.880** | 1.000 | 0.786 |
-| Genesis | CAN FD-ICEV | **0.974** | 1.000 | 0.949 |
 | Silverado | CAN-HEV | **0.943** | 1.000 | 0.892 |
 
-#### Train on Tesla (CAN-BEV) → Test on Other Vehicles
+#### Train on Tesla (CAN-BEV) → Test on Others
 
 | Target Vehicle | Protocol | F1-Score | Recall | Precision |
 |----------------|----------|----------|--------|-----------|
 | Kia | CAN-ICEV | **0.963** | 1.000 | 0.929 |
-| Genesis | CAN FD-ICEV | **0.985** | 1.000 | 0.971 |
+| Genesis | CAN-FD | **0.985** | 1.000 | 0.971 |
 | Silverado | CAN-HEV | **0.976** | 1.000 | 0.954 |
 
-#### Train on Silverado (CAN-HEV) → Test on Other Vehicles
-
-| Target Vehicle | Protocol | F1-Score | Recall | Precision |
-|----------------|----------|----------|--------|-----------|
-| Kia | CAN-ICEV | **0.950** | 1.000 | 0.905 |
-| Tesla | CAN-BEV | **0.889** | 1.000 | 0.800 |
-| Genesis | CAN FD-ICEV | **0.999** | 1.000 | 0.998 |
-
-#### Train on Genesis (CAN FD-ICEV) → Test on Other Vehicles
+#### Train on Genesis (CAN-FD) → Test on Others
 
 | Target Vehicle | Protocol | F1-Score | Recall | Precision |
 |----------------|----------|----------|--------|-----------|
@@ -190,34 +160,145 @@ Segmentation ensures consistent message density (>265 frames per window) across 
 | Tesla | CAN-BEV | **0.922** | 1.000 | 0.855 |
 | Silverado | CAN-HEV | **0.944** | 1.000 | 0.894 |
 
-### Cross-Laboratory Validation
+#### Train on Silverado (CAN-HEV) → Test on Others
 
-Training on **LISA** datasets, testing on **HCRL** and **DTU**:
+| Target Vehicle | Protocol | F1-Score | Recall | Precision |
+|----------------|----------|----------|--------|-----------|
+| Kia | CAN-ICEV | **0.950** | 1.000 | 0.905 |
+| Tesla | CAN-BEV | **0.889** | 1.000 | 0.800 |
+| Genesis | CAN-FD | **0.999** | 1.000 | 0.998 |
 
-| Training Vehicle | Target Lab | Target Vehicle | F1-Score | Recall |
-|-----------------|------------|----------------|----------|--------|
+### Cross-Laboratory Validation (LISA → HCRL/DTU)
+
+Training on LISA, evaluating on external HCRL and DTU datasets:
+
+| Train Vehicle | Test Lab | Test Vehicle | F1-Score | Recall |
+|--------------|----------|--------------|----------|--------|
 | Kia (LISA) | HCRL | Hyundai Sonata | **0.952** | 1.000 |
 | Kia (LISA) | DTU | Subaru Forester | **0.918** | 0.998 |
 | Tesla (LISA) | HCRL | Hyundai Sonata | **0.945** | 1.000 |
 | Tesla (LISA) | DTU | Subaru Forester | **0.931** | 0.999 |
-| Silverado (LISA) | HCRL | Hyundai Sonata | **0.938** | 1.000 |
-| Silverado (LISA) | DTU | Subaru Forester | **0.925** | 0.997 |
-| Genesis (LISA) | HCRL | Hyundai Sonata | **0.948** | 1.000 |
-| Genesis (LISA) | DTU | Subaru Forester | **0.934** | 0.999 |
 
-### Key Findings
+### Zero-Adaptation Unseen Attack Types
 
-✅ **Perfect Attack Detection**: Recall = 1.000 from "low" validation conditions across all vehicles  
-✅ **Strong Cross-Domain Transfer**: F1 = 0.93-0.95 on unseen lab datasets  
-✅ **Protocol Agnostic**: Works equally well on CAN, CAN-FD, and mixed environments  
-✅ **Powertrain Independent**: ICEV, HEV, BEV show comparable performance  
-✅ **Zero-Shot Learning**: No vehicle-specific retraining required  
+Trained on LISA (DoS, Fuzz, Replay) → Tested on HCRL (Malfunction, Spoofing)
+
+| Attack Type | Accuracy | Precision | Recall | F1 |
+|------------|----------|-----------|--------|-----|
+| Malfunction | 1.00 | 1.00 | 1.00 | 1.00 |
+| Gear Spoofing | 0.99 | 1.00 | 0.98 | 0.99 |
+| RPM Spoofing | 0.99 | 0.99 | 0.99 | 0.99 |
+
+### Key Performance Properties
+
+✅ **Perfect Recall (1.000)** from Low injection intensity (6.25%) onward across all vehicles  
+✅ **F1 = 0.92–0.99** with consistent 95% confidence intervals (CI < 0.08)  
+✅ **Attack-Type Agnostic**: DoS, Fuzz, Replay show <0.01 variance at same frequency  
+✅ **Frequency-Robust**: Handles low (2.94%) to high (21.05%) and random injection rates  
+✅ **Cross-Lab Generalization**: No performance degradation across LISA/HCRL/DTU datasets  
 
 ---
 
-## 🚀 Installation
+## 🛠️ Technical Details (Simplified)
+
+### How Timing Features Work
+
+The system converts continuous time gaps into simple numbers (0-6 or 0-8):
+
+**Inter-Frame Gaps** (time between any messages):
+- 0 = very fast (< 50 ms)
+- 1 = fast (50-100 ms)
+- 2 = medium (100-200 ms)
+- ... up to 6 = very slow (> 500 ms)
+
+**Same-ID Gaps** (time since last message with same ID):
+- Similar scale from 0-8, but for longer periods
+- Captures when each sensor repeats its message
+
+### MobileBERT: The Decision Engine
+
+The model that makes attack/normal decisions:
+- **Type**: Compact version of BERT (language model)
+- **Size**: ~25.3 MB (4× smaller than standard BERT)
+- **Speed**: Analyzes each message window in ~6-7 milliseconds
+- **Location**: Runs on vehicle's embedded computer or gateway
+
+### Processing Steps
+
+```
+Raw CAN Messages
+         ↓
+    Extract Timing
+         ↓
+    Convert to Numbers
+         ↓
+    Group into Windows
+         ↓
+   MobileBERT Model
+         ↓
+  Attack or Normal?
+```
+
+---
+
+## 📁 Repository Structure
+
+```
+UIDS-II/
+│
+├── UIDSApp/                              # Streamlit Inference Dashboard
+│   ├── OnnxModels/                       # Pre-trained ONNX models (download separately)
+│   │   ├── TrainKiaOnnx/                # Kia ICEV models
+│   │   ├── TrainGenOnnx/                # Genesis CAN-FD models
+│   │   ├── TrainTeslaOnnx/              # Tesla BEV models
+│   │   └── TrainSilOnnx/                # Silverado HEV models
+│   │
+│   ├── app.py                            # Main Streamlit application
+│   ├── EvaluateOnnx.py                  # ONNX inference engine
+│   ├── utils.py                          # Data preprocessing utilities
+│   ├── environment.yml                   # Conda environment
+│   └── requirements.txt                  # Pip dependencies
+│
+├── CANSimulator/                         # Hardware Testbed (C++17)
+│   ├── CAN_transmitter.cpp              # Legitimate traffic replay
+│   ├── CAN_attacker.cpp                 # Attack injection module
+│   ├── Unified_Receiver.cpp             # Real-time monitoring
+│   └── CMakeLists.txt                   # Build configuration
+│
+├── data/                                 # Datasets (not included)
+│   ├── LISA/
+│   │   ├── kia_soul/
+│   │   ├── tesla_model3/
+│   │   ├── genesis_g80/
+│   │   └── silverado/
+│   │
+│   ├── HCRL/
+│   │   ├── hyundai_sonata/
+│   │   └── kia_soul/
+│   │
+│   └── DTU/
+│       ├── subaru_forester/
+│       └── silverado/
+│
+├── docs/
+│   ├── images/
+│   │   ├── vehicle_architectures.png
+│   │   ├── timing_features.png
+│   │   └── pipeline.png
+│   └── paper.pdf
+│
+├── environment.yml                       # Conda environment specification
+├── requirements.txt                      # Pip dependencies
+├── LICENSE                               # MIT License
+└── README.md                             # This file
+```
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
+
 ```bash
 Python >= 3.10
 PyTorch >= 2.0
@@ -226,29 +307,29 @@ Streamlit >= 1.0
 CUDA >= 11.0 (optional, for GPU acceleration)
 ```
 
-### Setup
+### Installation
 
-1. **Clone the repository**
+1. **Clone repository**
 ```bash
 git clone https://github.com/Arupreza/UIDS-II.git
 cd UIDS-II
 ```
 
-2. **Download Pre-trained Models and Test Data**
+2. **Download pre-trained models and test data**
 
 📥 **[Download from Google Drive](https://drive.google.com/drive/folders/1GOdTZ0cb4phX_8hPk1nQmYCGQFQj5PjR?usp=sharing)**
 
 Extract and place:
 - ONNX models → `UIDSApp/OnnxModels/`
-- Test data → Your preferred location
+- Datasets → `data/` (optional for evaluation)
 
-3. **Create environment from YAML**
+3. **Create environment**
 ```bash
 conda env create -f environment.yml
 conda activate uidsapp
 ```
 
-**Alternative (pip installation)**:
+Or with pip:
 ```bash
 pip install -r requirements.txt
 ```
@@ -259,183 +340,310 @@ cd UIDSApp
 streamlit run app.py
 ```
 
-The dashboard opens at `http://localhost:8501`
+Dashboard opens at `http://localhost:8501`
 
 ---
 
-## 💻 Usage
+## 💻 How to Use
 
-### Streamlit Dashboard Workflow
+### Using the Streamlit Dashboard (Recommended)
 
-#### 1️⃣ Select Vehicle Model
-Choose target vehicle:
-- **Kia** (CAN-ICEV)
-- **Genesis** (CAN FD-ICEV)
-- **Tesla** (CAN-BEV)
-- **Silverado** (CAN-HEV)
+The easiest way to test the IDS:
 
-#### 2️⃣ Configure Parameters
+1. **Launch the dashboard**
+   ```bash
+   cd UIDSApp
+   streamlit run app.py
+   ```
 
-| Parameter | Description |
-|-----------|-------------|
-| **CAN CSV Folder Path** | Directory containing `.csv` CAN logs |
-| **Time Gap (seconds)** | Message segmentation window (83-160s) |
-| **Runtime Device** | `cpu` or `cuda` (GPU acceleration) |
-| **Mode** | `Validation` (with labels) or `Real-Life Inference` |
+2. **In the web interface**:
+   - Select your vehicle model (Kia, Genesis, Tesla, Silverado)
+   - Choose a folder containing CAN log files (CSV format)
+   - Select CPU or GPU for inference
+   - Click "Start" to analyze
 
-#### 3️⃣ Run Evaluation
+3. **View results**:
+   - Overall detection metrics (Accuracy, Precision, Recall, F1)
+   - Confusion matrix showing correct vs. incorrect detections
+   - Per-attack-type performance breakdown
 
-Click **Start** to process:
-1. Load ONNX model
-2. Read all CSV files
-3. Perform inference
-4. Display metrics (accuracy, precision, recall, F1)
-5. Show confusion matrix
+### Input Data Format
 
-### Python API for Custom Integration
-
-```python
-import onnxruntime as ort
-import numpy as np
-
-# Load ONNX model
-session = ort.InferenceSession("OnnxModels/TrainKiaOnnx/model.onnx")
-
-# Prepare input (normalized CAN features)
-input_data = np.array([[...]], dtype=np.float32)  # Shape: [batch, seq_len, features]
-
-# Run inference
-outputs = session.run(None, {"input": input_data})
-predictions = outputs[0]
-
-# Classify
-label = "Attack" if predictions[0] > 0.5 else "Normal"
-print(f"Prediction: {label} (confidence: {predictions[0]:.4f})")
+Prepare your CAN logs as CSV files with columns:
+```
+timestamp, can_id, payload
+1.234,     0x123,  AB CD EF 01 02 03 04 05
+1.245,     0x456,  10 20 30 40 50 60 70 80
 ```
 
-### Training Custom Models
+- **timestamp**: Message arrival time (seconds)
+- **can_id**: CAN identifier in hex
+- **payload**: Data bytes (space-separated hex)
 
-```python
-from transformers import MobileBertForSequenceClassification, Trainer
+The system automatically handles the rest.
 
-# Load pre-trained MobileBERT
-model = MobileBertForSequenceClassification.from_pretrained(
-    "google/mobilebert-uncased",
-    num_labels=2
-)
+### What Happens Inside
 
-# Configure training
-training_args = TrainingArguments(
-    output_dir="./results",
-    num_train_epochs=3,
-    per_device_train_batch_size=8,
-    learning_rate=2e-5,
-    evaluation_strategy="epoch"
-)
+When you run detection:
+1. ✅ Extracts timing features (time between messages)
+2. ✅ Converts to ordinal levels (suppresses noise)
+3. ✅ Groups into time windows (vehicle-specific duration)
+4. ✅ Feeds to MobileBERT model
+5. ✅ Outputs attack/normal decision with confidence
 
-# Train
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=train_dataset,
-    eval_dataset=eval_dataset
-)
+**No manual feature engineering needed—fully automated.**
 
-trainer.train()
+---
+
+## 🧪 Dataset Overview
+
+### Source Datasets
+
+| Dataset | Vehicle | Protocol | Duration | CAN IDs | Attack Types | Frequencies |
+|---------|---------|----------|----------|---------|--------------|------------|
+| **LISA** | Kia Soul | CAN | 2650 s | 79 | DoS, Fuzz, Replay | High, Med, Low, L-Low |
+| **LISA** | Genesis G80 | CAN-FD | 2500 s | 58 | DoS, Fuzz, Replay | High, Med, Low, L-Low |
+| **LISA** | Tesla S3 | CAN | 3200 s | 69 | DoS, Fuzz, Replay | High, Med, Low, L-Low |
+| **LISA** | Silverado | CAN | 2600 s | 98 | DoS, Fuzz, Replay | High, Med, Low, L-Low |
+| **HCRL** | Hyundai Sonata | CAN | 300 k msgs | 64 | DoS, Fuzz, Replay, Mal., Spoof | Multiple |
+| **DTU** | Subaru Forester | CAN | 264.5 k msgs | 52 | DoS, Fuzz | Multiple |
+| **DTU** | Silverado | CAN | 966 k msgs | 98 | DoS, Fuzz | Multiple |
+
+### Attack Injection Statistics
+
+| Attack Type | Intensity | Total Msgs | Injected | Rate |
+|------------|-----------|-----------|----------|------|
+| DoS | High | 760,000 | 160,000 | 21.05% |
+| | Medium | 700,000 | 100,000 | 14.29% |
+| | Low | 640,000 | 40,000 | 6.25% |
+| | Lower-Low | 618,100 | 18,179 | 2.94% |
+| | Random | 690,362 | 90,362 | 13.09% |
+| Fuzz | High–Random | (same pattern as DoS) |
+| Replay | High–Random | (same pattern as DoS) |
+
+---
+
+## 📜 What Attacks Does It Detect?
+
+### Supported Attacks
+
+The system is trained to detect:
+
+✅ **Denial-of-Service (DoS)**: Attacker floods the bus with messages  
+✅ **Fuzzing**: Random invalid messages injected  
+✅ **Replay**: Previously captured messages sent again  
+✅ **Malfunction**: Fake data sent to control units  
+✅ **Spoofing**: Fake messages pretending to be from other ECUs  
+
+All of these disrupt the normal timing patterns that the system watches for.
+
+### How It Works
+
+The system assumes:
+- Attacker has access to CAN bus (through OBD-II port, telematics, etc.)
+- Attacker can send any messages they want
+- But cannot modify the vehicle's internal computer code
+
+Any injected messages will change **when messages arrive**, which the system detects.
+
+---
+
+## 🏆 Why This System is Different
+
+### Advantages Over Existing Approaches
+
+| Feature | Old Methods | UIDS-II |
+|---------|-----------|---------|
+| Works on Kia & Tesla | ❌ No | ✅ Yes |
+| Needs retraining per car | ✅ Yes | ❌ No |
+| Works on CAN & CAN-FD | Partial | ✅ Both |
+| Tested on HEV/BEV | ❌ Mostly ICEV | ✅ All types |
+| Fast on small devices | Medium | ✅ Very fast |
+| Model size | Large (110MB) | ✅ Compact (25MB) |
+
+### Key Strengths
+
+✅ **One model, many vehicles** - Train once, deploy everywhere  
+✅ **Works on fast and slow attacks** - No frequency tuning needed  
+✅ **No DBC knowledge required** - Works without proprietary data  
+✅ **Tested at multiple labs** - Not just academic dataset  
+✅ **Detects unseen attack types** - Generalizes beyond training data
+
+---
+
+## 🔧 Setup & Configuration
+
+### First Time Setup
+
+When you use the system on a new vehicle:
+
+1. **Collect 10-30 seconds of normal traffic** (no attacks)
+   - This is used to learn the vehicle's natural message rate
+   - No manual intervention needed
+
+2. **System automatically calculates window duration**
+   - Adapts to vehicle's speed of CAN messages
+   - Pre-calculated durations for known vehicles:
+     - Kia Soul: 100 ms
+     - Genesis: 105 ms  
+     - Tesla: 83 ms
+     - Silverado: 100 ms
+
+3. **Ready to detect attacks**
+   - No additional configuration required
+   - Works on any attack frequency
+
+### Automatic Attack Detection
+
+The system handles all attack speeds **without any adjustment**:
+- ✅ Very frequent attacks (21% of messages)
+- ✅ Frequent attacks (14% of messages)
+- ✅ Occasional attacks (6% of messages)
+- ✅ Rare attacks (2.94% of messages)
+- ✅ Unpredictable attacks (random timing)
+
+Works out-of-the-box with zero tuning.
+
+---
+
+## 📦 Dependencies
+
+### Core Libraries
+
+```
+torch>=2.0.0              # Deep learning framework
+transformers>=4.30.0      # HuggingFace Transformers (MobileBERT)
+onnxruntime>=1.14.0       # ONNX inference optimization
+numpy>=1.21.0             # Numerical computing
+pandas>=1.3.0             # Data manipulation
+streamlit>=1.0.0          # Dashboard UI
+scikit-learn>=0.24.0      # Metrics & preprocessing
+```
+
+### Optional (for training)
+
+```
+pytorch-lightning>=1.6.0   # Training framework
+wandb>=0.12.0             # Experiment tracking
+pytest>=6.2.0             # Unit testing
+```
+
+### CAN Hardware (testbed only)
+
+```
+python-can>=3.3.0         # CAN interface library
+PEAK PCAN-USB X6          # 6-channel CAN/CAN-FD interface
 ```
 
 ---
 
-## 📁 Repository Structure
+## 📈 Performance Metrics Summary
 
-```
-UIDS-II/
-│
-├── UIDSApp/                         # Streamlit Inference Dashboard
-│   ├── OnnxModels/                  # Pre-trained ONNX models (download separately)
-│   │   ├── TrainKiaOnnx/           # Kia ICEV models
-│   │   ├── TrainGenOnnx/           # Genesis CAN-FD models
-│   │   ├── TrainTeslaOnnx/         # Tesla BEV models
-│   │   └── TrainSilOnnx/           # Silverado HEV models
-│   ├── app.py                       # Streamlit dashboard
-│   ├── EvaluateOnnx.py             # ONNX inference engine
-│   ├── utils.py                     # Data preprocessing utilities
-│   ├── environment.yml              # Conda environment
-│   └── requirements.txt             # Pip dependencies
-│
-├── CANSimulator/                    # Hardware Testbed (C++17)
-│   ├── CAN_transmitter.cpp         # Legitimate traffic replay
-│   ├── Unified_Receiver.cpp        # Real-time monitoring
-│   ├── CAN_attacker.cpp            # Attack vector injection
-│   └── README.md                    # Testbed documentation
-│
-├── docs/
-│   ├── images/
-│   │   ├── vehicle_network_architectures.png  # Fig. 1
-│   │   ├── bert_ids_pipeline.png              # Fig. 4
-│   └── paper.pdf                    # Associated research paper
-│
-├── data/                            # Datasets (not included)
-│   ├── LISA/
-│   │   ├── kia_soul/
-│   │   ├── tesla_model3/
-│   │   ├── genesis_g80/
-│   │   └── silverado/
-│   ├── HCRL/
-│   │   └── hyundai_sonata/
-│   └── DTU/
-│       └── subaru_forester/
-│
-├── environment.yml                  # Main conda environment
-├── requirements.txt                 # Main pip dependencies
-├── LICENSE
-└── README.md                        # This file
-```
+### Overall Performance
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| **F1-Score Range** | 0.88–0.99 | Across all vehicle pairs |
+| **Recall (Low+)** | 1.000 | From 6.25% injection onward |
+| **Precision** | 0.79–1.00 | Varies by vehicle pair |
+| **Attack-Type Robustness** | Variance < 0.01 | DoS, Fuzz, Replay uniform |
+| **Frequency Robustness** | Variance < 0.05 | Across all injection rates |
+| **Cross-Lab Generalization** | F1 = 0.85–1.00 | LISA → HCRL/DTU transfer |
+| **Unseen Attack Detection** | F1 = 0.99–1.00 | Malfunction, Spoofing |
+| **Model Compression** | 4.3× | vs. BERT-BASE |
+| **Inference Latency** | 6.46 ms/window | GPU; 58 ms on Jetson Nano |
 
 ---
 
-## 📄 License
+## 📝 Citation
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+If you use UIDS-II in your research, please cite:
+
+```bibtex
+@article{islam2026vehicle,
+  title={Vehicle-Model-Agnostic Intrusion Detection: A Universal Approach for In-Vehicle Networks},
+  author={Islam, Md Rezanur and Sarker, Manobendu and Ryu, Donghyun and Yim, Kangbin},
+  journal={IEEE Transactions on Vehicular Technology},
+  year={2026},
+  note={Under Review}
+}
+```
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions welcome! Please follow standard practices:
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
+2. Create a feature branch (`git checkout -b feature/YourFeature`)
+3. Commit changes (`git commit -am 'Add YourFeature'`)
+4. Push to branch (`git push origin feature/YourFeature`)
 5. Open a Pull Request
+
+### Report Issues
+
+For bugs, feature requests, or questions:
+- **GitHub Issues**: [UIDS-II Issues](https://github.com/Arupreza/UIDS-II/issues)
+- **Email**: Contact authors below
 
 ---
 
-## 📧 Contact
+## 👥 Authors
 
-- **Md Rezanur Islam** - arupreza@sch.ac.kr
-- **Donghyun Ryu** - rdh1999@sch.ac.kr
-- **Kangbin Yim** - yim@sch.ac.kr
+**Md Rezanur Islam**  
+*Ph.D. Candidate, Software Convergence*  
+Soonchunhyang University, Asan, South Korea  
+📧 arupreza@sch.ac.kr
 
-**Soonchunhyang University**  
-Department of Software Convergence & Information Security Engineering  
-Asan-si, South Korea
+**Manobendu Sarker**  
+*Postdoctoral Researcher, Electrical Engineering*  
+École de Technologie Supérieure, Montréal, Canada
+
+**Donghyun Ryu**  
+*Ph.D. Candidate, Software Convergence*  
+Soonchunhyang University, Asan, South Korea  
+📧 rdh1999@sch.ac.kr
+
+**Kangbin Yim** (Corresponding Author)  
+*Professor, Information Security Engineering*  
+Soonchunhyang University, Asan, South Korea  
+📧 yim@sch.ac.kr  
+🔬 [LISA Lab](https://infolab.soonchunhyang.ac.kr)
 
 ---
 
 ## 🙏 Acknowledgments
 
-This research was supported by the MSIT (Ministry of Science and ICT), Korea, under the Convergence Security Core Talent Training Business Support Program (IITP-2024-2710008611) supervised by the IITP (Institute for Information & Communications Technology Planning & Evaluation) and Soonchunhyang University Research Fund.
+This research was supported by:
+- **MSIT** (Ministry of Science and ICT), Korea
+- **IITP** (Institute for Information & Communications Technology Planning & Evaluation)
+  - Grant: Convergence Security Core Talent Training Business Support Program (IITP-2024-2710008611)
+- **Soonchunhyang University** Research Fund
 
-**Special Thanks**:
-- **LISA Lab** (Soonchunhyang University) - Dataset collection and validation
-- **HCRL** - Cross-laboratory validation datasets
-- **DTU** - Independent testbed validation
-- **Hugging Face** - MobileBERT pre-trained models
-- **Streamlit** - Interactive dashboard framework
-- **ONNX Runtime** - Production inference optimization
+**Datasets**:
+- LISA Lab (Soonchunhyang University)
+- HCRL (Hacking and Countermeasure Research Lab)
+- DTU (Technical University of Denmark)
+
+**Technical Resources**:
+- HuggingFace Transformers & MobileBERT
+- ONNX Runtime for production inference
+- Streamlit for interactive dashboards
+- PyTorch & Transformers libraries
 
 ---
 
-**Keywords**: Intrusion Detection System, CAN Bus Security, Zero-Shot Learning, MobileBERT, Cross-Vehicle Generalization, ICEV, HEV, BEV, CAN-FD, Automotive Cybersecurity, Deep Learning, Transformer, ONNX
+## 📄 License
+
+This project is licensed under the **MIT License** - see [LICENSE](LICENSE) file for details.
+
+---
+
+## 🚗 Disclaimer
+
+This system is designed for **authorized security research and vehicle-fleet IDS deployment only**. Unauthorized modification of vehicle systems or CAN buses may violate laws and void warranties. Always obtain manufacturer and owner consent before testing.
+
+---
+
+**Keywords**: Vehicle-Model Agnostic, Intrusion Detection, CAN Bus Security, Zero-Shot Learning, MobileBERT, Cross-Vehicle Generalization, ICEV, HEV, BEV, CAN-FD, Temporal Learning, Automotive Cybersecurity
